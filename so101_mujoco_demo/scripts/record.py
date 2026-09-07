@@ -1,6 +1,11 @@
 """Record a LeRobotDataset by keyboard-teleoperating the SO-101 in MuJoCo.
 
-    pixi run record --repo-id you/so101_pick_cube --episodes 20 --display-data
+    pixi run so101-record --repo-id you/so101_pick_cube --episodes 20 --display-data
+    pixi run so101-record --repo-id you/so101_pick_two --episodes 40 --colors red green
+
+The scene has a red and a green cube. Episodes alternate through --colors and
+the terminal tells you which cube to pick; that color's task string is stored
+with the episode (this is what language-conditioned policies train on).
 
 Motion keys (keyboard_pose teleoperator):
     arrows = EE forward/back/left/right, w/s = up/down, q/e = pitch,
@@ -25,9 +30,10 @@ from lerobot.utils.feature_utils import combine_feature_dicts
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from lerobot_teleoperator_keyboard_pose import KeyboardPose, KeyboardPoseConfig
+from so101_sim.env import TASKS
 from sim_pipelines import (
     FPS,
-    TASK,
+    add_colors_arg,
     identity_action_pipeline,
     identity_observation_pipeline,
     make_teleop_action_pipeline,
@@ -60,6 +66,7 @@ def main():
     parser.add_argument("--root", default=None, help="local dataset root (default: HF cache)")
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--display-data", action="store_true", help="live rerun view")
+    add_colors_arg(parser)
     args = parser.parse_args()
 
     robot = SO101Sim(SO101SimConfig(show_viewer=True))
@@ -107,7 +114,12 @@ def main():
     episode_idx = 0
     try:
         while episode_idx < args.episodes and not events["stop_recording"]:
-            print(f"recording episode {episode_idx + 1}/{args.episodes} - lift the cube!")
+            # fresh scene (target cube for this episode) + re-anchored teleop reference
+            color = args.colors[episode_idx % len(args.colors)]
+            robot.reset_scene(target_color=color)
+            teleop.reset_state()
+            teleop_action_processor.reset()
+            print(f"recording episode {episode_idx + 1}/{args.episodes} - lift the {color.upper()} cube!")
             record_loop(
                 robot=robot,
                 events=events,
@@ -118,7 +130,7 @@ def main():
                 teleop=teleop,
                 dataset=dataset,
                 control_time_s=EPISODE_TIME_S,
-                single_task=TASK,
+                single_task=TASKS[color],
                 display_data=args.display_data,
             )
 
@@ -131,11 +143,6 @@ def main():
                 dataset.save_episode()
                 episode_idx += 1
                 print(f"saved ({episode_idx}/{args.episodes})")
-
-            # fresh scene + re-anchored teleop reference for the next episode
-            robot.reset_scene()
-            teleop.reset_state()
-            teleop_action_processor.reset()
     finally:
         robot.disconnect()
         teleop.disconnect()

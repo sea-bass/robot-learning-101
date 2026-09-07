@@ -27,17 +27,26 @@ from lerobot.robots.so_follower.robot_kinematic_processor import (
 )
 
 from so101_sim.control import WORKSPACE_HIGH, WORKSPACE_LOW
-from so101_sim.env import JOINT_NAMES
+from so101_sim.env import CUBE_COLORS, JOINT_NAMES, TASKS
 from so101_sim.ik import ARM_JOINTS, EE_FRAME, URDF_PATH
 
 FPS = 25
-TASK = "Pick up the red cube and lift it."
+TASK = TASKS["red"]  # single-task default; language-conditioned runs use TASKS[color]
 WORKSPACE_BOUNDS = {"min": WORKSPACE_LOW.tolist(), "max": WORKSPACE_HIGH.tolist()}
 
 # gripper joint units are degrees: -8 = firm close, 74 = open (wider openings
 # make the moving finger protrude far enough to bulldoze the cube on approach)
 GRIPPER_CLIP = (-8.0, 74.0)
 GRIPPER_SPEED_FACTOR = 2.4  # deg per tick at |gripper_vel| = 1 (~60 deg/s at 25 fps)
+
+
+def add_colors_arg(parser, default=("red",)):
+    """--colors red green: which cube(s) to target; episodes cycle through the list."""
+    parser.add_argument(
+        "--colors", nargs="+", choices=CUBE_COLORS, default=list(default), metavar="COLOR",
+        help=f"target cube color(s), episodes alternate through them (choices: {', '.join(CUBE_COLORS)}; "
+        f"default: {' '.join(default)})",
+    )
 
 
 def make_kinematics() -> RobotKinematics:

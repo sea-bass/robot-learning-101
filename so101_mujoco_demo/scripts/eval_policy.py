@@ -1,12 +1,17 @@
 """Roll out a trained policy in the SO-101 MuJoCo sim and report success rate.
 
-    pixi run eval \
+    pixi run so101-eval \
         --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model \
         --episodes 10
+    pixi run so101-eval --policy-path ... --episodes 20 --colors red green   # language-conditioned
 
-To watch in the MuJoCo viewer:  pixi run python scripts/eval_policy.py ... --show
+Episodes alternate through --colors; each one's default instruction is that
+color's task string and success means *that* cube was lifted (lifting the
+other one is counted separately, as "wrong cube").
+
+To watch in the MuJoCo viewer:  pixi run -e lerobot python scripts/eval_policy.py ... --show
 For deployment-style rollouts the official CLI also works:
-    pixi run lerobot-rollout --robot.type=so101_sim ...
+    pixi run -e lerobot lerobot-rollout --robot.type=so101_sim ...
 """
 
 import argparse
@@ -20,8 +25,8 @@ from lerobot.configs.policies import PreTrainedConfig
 from lerobot.policies.factory import get_policy_class, make_pre_post_processors
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
-from so101_sim.env import JOINT_NAMES
-from sim_pipelines import FPS, TASK
+from so101_sim.env import JOINT_NAMES, TASKS
+from sim_pipelines import FPS, add_colors_arg
 
 MAX_TICKS = 250  # per-episode budget in sim ticks (250 = 10 s simulated; wall time
                  # is longer when rendering + inference exceed the 40 ms tick budget)
@@ -45,9 +50,10 @@ def main():
     parser.add_argument("--seed", type=int, default=1000)
     parser.add_argument("--show", action="store_true", help="display in MuJoCo viewer")
     parser.add_argument("--max-ticks", type=int, default=MAX_TICKS, help="sim ticks per episode (25/s)")
+    add_colors_arg(parser)
     parser.add_argument(
-        "--task", default=TASK,
-        help="language instruction for language-conditioned policies (default: the recorded task)",
+        "--task", default=None,
+        help="override the language instruction (default: the target color's recorded task string)",
     )
     parser.add_argument(
         "--speed", type=float, default=1.0,
@@ -76,18 +82,24 @@ def main():
     robot = SO101Sim(SO101SimConfig(show_viewer=args.show, seed=args.seed))
     robot.connect()
 
-    successes = 0
+    successes = {c: 0 for c in args.colors}
+    wrong = {c: 0 for c in args.colors}
+    counts = {c: 0 for c in args.colors}
     for ep in range(args.episodes):
-        robot.reset_scene(seed=args.seed + ep)
+        color = args.colors[ep % len(args.colors)]
+        task = args.task or TASKS[color]
+        counts[color] += 1
+        robot.reset_scene(seed=args.seed + ep, target_color=color)
         policy.reset()
         success = False
+        wrong_cube = False  # the policy lifted the other cube at some point
         ep_start = time.perf_counter()
         ticks = 0
         for _ in range(args.max_ticks):
             ticks += 1
             t0 = time.perf_counter()
             obs = robot.get_observation()
-            batch = preprocessor(obs_to_batch(obs, device, args.task))
+            batch = preprocessor(obs_to_batch(obs, device, task))
             with torch.inference_mode():
                 action_t = policy.select_action(batch)
             action_t = postprocessor(action_t)
@@ -96,18 +108,26 @@ def main():
             if robot.is_success:
                 success = True
                 break
+            wrong_cube |= robot.wrong_cube_lifted
             if args.show:
                 leftover = 1 / (FPS * args.speed) - (time.perf_counter() - t0)
                 if leftover > 0:
                     time.sleep(leftover)
-        successes += success
+        successes[color] += success
+        wrong[color] += wrong_cube
         wall = time.perf_counter() - ep_start
+        outcome = "success" if success else ("failure (wrong cube)" if wrong_cube else "failure")
         print(
-            f"episode {ep + 1}/{args.episodes}: {'success' if success else 'failure'} "
+            f"episode {ep + 1}/{args.episodes} [{color}]: {outcome} "
             f"({ticks} ticks = {ticks / 25:.1f} s sim in {wall:.1f} s wall, {ticks / wall:.0f} Hz)"
         )
 
-    print(f"\nsuccess rate: {successes}/{args.episodes} ({100 * successes / args.episodes:.0f}%)")
+    print()
+    for color in args.colors:
+        n = counts[color]
+        print(f"{color:>6}: {successes[color]}/{n} ({100 * successes[color] / max(n, 1):.0f}%), wrong cube {wrong[color]}")
+    total = sum(successes.values())
+    print(f"success rate: {total}/{args.episodes} ({100 * total / args.episodes:.0f}%)")
     robot.disconnect()
 
 

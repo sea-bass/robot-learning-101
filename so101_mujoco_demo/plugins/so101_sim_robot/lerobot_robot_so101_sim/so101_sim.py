@@ -11,7 +11,7 @@ import numpy as np
 
 from lerobot.robots import Robot
 
-from so101_sim.env import JOINT_NAMES, SO101PickCubeEnv
+from so101_sim.env import CUBE_COLORS, JOINT_NAMES, TASKS, SO101PickCubeEnv
 
 from .config_so101_sim import SO101SimConfig
 
@@ -55,6 +55,7 @@ class SO101Sim(Robot):
     def connect(self, calibrate: bool = True) -> None:
         self.env = SO101PickCubeEnv(
             image_size=(self.config.image_height, self.config.image_width),
+            target_color=self.config.target_color,
         )
         self.env.reset(seed=self.config.seed)
         if self.config.show_viewer:
@@ -105,12 +106,31 @@ class SO101Sim(Robot):
 
     # -------------------------------------------------------- sim utilities
 
-    def reset_scene(self, seed: int | None = None) -> None:
-        """Re-home the arm and respawn the cube (between episodes)."""
-        self.env.reset(seed=seed)
+    def reset_scene(self, seed: int | None = None, target_color: str | None = None) -> None:
+        """Re-home the arm and respawn both cubes (between episodes).
+
+        ``target_color`` switches which cube must be picked from now on.
+        """
+        options = {"target_color": target_color} if target_color else None
+        self.env.reset(seed=seed, options=options)
         if self.viewer is not None:
             self.viewer.sync()
 
     @property
+    def target_color(self) -> str:
+        return self.env.target_color
+
+    @property
+    def task(self) -> str:
+        """Language instruction for the current target cube."""
+        return TASKS[self.env.target_color]
+
+    @property
     def is_success(self) -> bool:
+        """The *target* cube is lifted and held."""
         return self.env._is_success()
+
+    @property
+    def wrong_cube_lifted(self) -> bool:
+        """The other cube got picked instead (useful when scoring a policy)."""
+        return any(self.env.is_lifted(c) for c in CUBE_COLORS if c != self.env.target_color)

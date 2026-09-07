@@ -18,14 +18,14 @@ from collections.abc import Iterator
 import numpy as np
 
 from so101_sim.control import WORKSPACE_HIGH, WORKSPACE_LOW, EETargetController
-from so101_sim.env import GRIPPER_OPEN, SO101PickCubeEnv
+from so101_sim.env import CUBE_HALF, GRIPPER_OPEN, SO101PickCubeEnv
 
 GRASP_PITCH = 0.6      # rad beyond home pitch: near-vertical approach
 POCKET_PERP = 0.01     # jaw pocket offset from EE frame toward the moving jaw
 BEHIND_OFFSET = 0.008  # descend clearance behind the cube
 SEAT_OFFSET = 0.003    # remaining clearance once the cube is seated
 CLOSE_TICKS = 22       # gripper close ramp duration
-CUBE_HALF = 0.0125
+
 
 
 def _moving_jaw_dir(ctl: EETargetController) -> np.ndarray:

@@ -1,4 +1,11 @@
-"""Gymnasium environment: SO-101 arm picking a cube in MuJoCo.
+"""Gymnasium environment: SO-101 arm picking one of two cubes in MuJoCo.
+
+The scene holds a red and a green cube. Each episode places one cube in the
+left slot and one in the right slot (which color goes where is random, so a
+policy cannot memorize a side) and the episode's *target color* decides which
+cube must be lifted. That makes the scene usable both for a single-task policy
+(always the red cube) and for a language-conditioned one (the instruction
+names the color).
 
 Observations: (6,) joint positions in radians (5 arm joints + gripper).
 Actions: (6,) absolute joint position targets in radians, same order as
@@ -22,6 +29,12 @@ EE_SITE = "gripperframe"
 GRIPPER_OPEN = 1.3
 GRIPPER_CLOSED = -0.1
 
+CUBE_COLORS = ("red", "green")
+CUBE_HALF = 0.0125
+
+# language instruction recorded with each episode (the target color decides it)
+TASKS = {color: f"Pick up the {color} cube and lift it." for color in CUBE_COLORS}
+
 
 class SO101PickCubeEnv(gym.Env):
     metadata = {"render_modes": ["rgb_array"], "render_fps": 25}
@@ -30,17 +43,22 @@ class SO101PickCubeEnv(gym.Env):
         self,
         image_size: tuple[int, int] = (240, 320),
         control_dt: float = 0.04,
-        # spawn region where grasps are reliable; +y is slightly tighter because
-        # the moving jaw is offset toward +y and grasps there are harder
+        # Spawn slots (base frame: +x forward, +y left). Both cubes share the x
+        # range; the y ranges are separated so the open jaws of the gripper
+        # never reach the other cube while grasping. +y is slightly tighter
+        # because the moving jaw is offset toward +y and grasps there are harder.
         cube_spawn_x: tuple[float, float] = (0.20, 0.28),
-        cube_spawn_y: tuple[float, float] = (-0.07, 0.04),
+        cube_spawn_y_right: tuple[float, float] = (-0.09, -0.05),
+        cube_spawn_y_left: tuple[float, float] = (0.0, 0.04),
+        target_color: str = "red",
         lift_height: float = 0.08,
     ):
         super().__init__()
         self.image_size = image_size
         self.lift_height = lift_height
         self.cube_spawn_x = cube_spawn_x
-        self.cube_spawn_y = cube_spawn_y
+        self.slot_spawn_y = {"right": cube_spawn_y_right, "left": cube_spawn_y_left}
+        self.target_color = target_color
 
         self.model = mujoco.MjModel.from_xml_path(str(MODEL_XML))
         self.data = mujoco.MjData(self.model)
@@ -52,8 +70,13 @@ class SO101PickCubeEnv(gym.Env):
         ]
         self.qpos_ids = [self.model.jnt_qposadr[j] for j in self.joint_ids]
         self.ee_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, EE_SITE)
-        cube_joint = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "cube_free")
-        self.cube_qpos_adr = self.model.jnt_qposadr[cube_joint]
+        self._cube_qpos_adr = {
+            color: self.model.jnt_qposadr[
+                mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"cube_{color}_free")
+            ]
+            for color in CUBE_COLORS
+        }
+        self.cube_sides: dict[str, str] = {}
         self.home_keyframe = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_KEY, "home")
 
         ctrl_range = self.model.actuator_ctrlrange.copy()
@@ -84,33 +107,76 @@ class SO101PickCubeEnv(gym.Env):
         return self.data.qpos[self.qpos_ids].astype(np.float32)
 
     @property
+    def target_color(self) -> str:
+        return self._target_color
+
+    @target_color.setter
+    def target_color(self, color: str) -> None:
+        if color not in CUBE_COLORS:
+            raise ValueError(f"target_color must be one of {CUBE_COLORS}, got {color!r}")
+        self._target_color = color
+
+    @property
+    def cube_qpos_adr(self) -> int:
+        """qpos address of the target cube's free joint."""
+        return self._cube_qpos_adr[self.target_color]
+
+    def cube_pos_of(self, color: str) -> np.ndarray:
+        adr = self._cube_qpos_adr[color]
+        return self.data.qpos[adr : adr + 3].copy()
+
+    @property
     def cube_pos(self) -> np.ndarray:
-        return self.data.qpos[self.cube_qpos_adr : self.cube_qpos_adr + 3].copy()
+        """Position of the target cube."""
+        return self.cube_pos_of(self.target_color)
 
     @property
     def ee_pos(self) -> np.ndarray:
         return self.data.site_xpos[self.ee_site_id].copy()
 
-    def _is_success(self) -> bool:
-        cube = self.cube_pos
+    def is_lifted(self, color: str) -> bool:
+        cube = self.cube_pos_of(color)
         lifted = cube[2] > self.lift_height
         held = np.linalg.norm(cube - self.ee_pos) < 0.08
         return bool(lifted and held)
 
+    def _is_success(self) -> bool:
+        return self.is_lifted(self.target_color)
+
     # ------------------------------------------------------------------ gym API
 
     def reset(self, seed=None, options=None):
+        """Re-home the arm and respawn both cubes.
+
+        ``options={"target_color": "green"}`` switches the target for this and
+        the following episodes.
+        """
         super().reset(seed=seed)
+        if options and "target_color" in options:
+            self.target_color = options["target_color"]
         mujoco.mj_resetDataKeyframe(self.model, self.data, self.home_keyframe)
-        # randomize cube spawn position and yaw
-        x = self.np_random.uniform(*self.cube_spawn_x)
-        y = self.np_random.uniform(*self.cube_spawn_y)
-        yaw = self.np_random.uniform(-np.pi / 4, np.pi / 4)
-        quat = np.array([np.cos(yaw / 2), 0, 0, np.sin(yaw / 2)])
-        self.data.qpos[self.cube_qpos_adr : self.cube_qpos_adr + 3] = [x, y, 0.0125]
-        self.data.qpos[self.cube_qpos_adr + 3 : self.cube_qpos_adr + 7] = quat
+        # random side assignment, then a random pose within each slot
+        sides = ["left", "right"]
+        self.np_random.shuffle(sides)
+        self.cube_sides = dict(zip(CUBE_COLORS, sides))
+        for color, side in self.cube_sides.items():
+            x = self.np_random.uniform(*self.cube_spawn_x)
+            y = self.np_random.uniform(*self.slot_spawn_y[side])
+            yaw = self.np_random.uniform(-np.pi / 4, np.pi / 4)
+            quat = np.array([np.cos(yaw / 2), 0, 0, np.sin(yaw / 2)])
+            adr = self._cube_qpos_adr[color]
+            self.data.qpos[adr : adr + 3] = [x, y, CUBE_HALF]
+            self.data.qpos[adr + 3 : adr + 7] = quat
         mujoco.mj_forward(self.model, self.data)
-        return self.joint_pos, {"cube_pos": self.cube_pos}
+        return self.joint_pos, self._info()
+
+    def _info(self) -> dict:
+        return {
+            "target_color": self.target_color,
+            "cube_pos": self.cube_pos,
+            "cube_sides": dict(self.cube_sides),
+            "ee_pos": self.ee_pos,
+        }
 
     def step(self, action):
         action = np.clip(action, self.action_space.low, self.action_space.high)
@@ -119,7 +185,7 @@ class SO101PickCubeEnv(gym.Env):
             mujoco.mj_step(self.model, self.data)
         success = self._is_success()
         reward = 1.0 if success else 0.0
-        info = {"is_success": success, "cube_pos": self.cube_pos, "ee_pos": self.ee_pos}
+        info = {"is_success": success, **self._info()}
         return self.joint_pos, reward, success, False, info
 
     def render(self):

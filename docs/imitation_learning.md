@@ -2,8 +2,16 @@
 
 Code: [`so101_mujoco_demo/`](../so101_mujoco_demo) (its README maps out the files).
 
-Teleoperate a simulated [SO-101 arm](https://github.com/TheRobotStudio/SO-ARM100) in MuJoCo with the keyboard, record pick-the-cube demonstrations as LeRobot datasets, visualize them with rerun, train a policy (ACT from scratch, or fine-tune SmolVLA), and roll it back out in the sim.
+Teleoperate a simulated [SO-101 arm](https://github.com/TheRobotStudio/SO-ARM100) in MuJoCo with the keyboard, record demonstrations as LeRobot datasets, visualize them with rerun, train a policy, and roll it back out in the sim.
 This is the full LeRobot workflow, no hardware required.
+
+The scene holds a **red** and a **green** cube.
+Every episode drops one cube in the left slot and one in the right slot, with the colors swapped at random so a policy cannot memorize a side.
+The *target color* decides which cube counts as a successful pick, and each recorded episode stores the matching instruction ("Pick up the green cube and lift it.").
+That lets the same scene teach two lessons:
+
+- **ACT**, a single-task policy, trained on red-only demonstrations.
+- **SmolVLA**, a language-conditioned policy, fine-tuned on demonstrations of both colors so the instruction steers which cube it picks.
 
 The sim is integrated the same way you would integrate real hardware ([Bring Your Own Hardware](https://huggingface.co/docs/lerobot/main/en/integrate_hardware)): a `Robot` plugin and a `Teleoperator` plugin that lerobot's CLIs auto-discover.
 Datasets recorded here have the same schema as real SO-101 datasets (joint positions in degrees, `<joint>.pos` names, wrist/front cameras), and EE teleop runs through lerobot's own placo IK + SO-follower processor pipeline.
@@ -18,10 +26,13 @@ Extra arguments are passed through to the underlying command.
 The headless tasks (`so101-collect`, `so101-eval`) set `MUJOCO_GL=egl` for you.
 To watch a viewer instead, invoke the script directly from `so101_mujoco_demo/` (`pixi run -e lerobot python scripts/... --show`) so MuJoCo uses its windowed GLFW backend.
 
+Every script takes `--colors`: the target cube(s), with episodes alternating through the list.
+The default is `red`; `--colors red green` is the language-conditioned setting.
+
 ## 1. Practice teleoperating
 
 ```bash
-pixi run so101-teleoperate
+pixi run so101-teleoperate --colors red green
 ```
 
 | key | action |
@@ -32,28 +43,34 @@ pixi run so101-teleoperate
 | q / e | pitch gripper up / down |
 | a / d | roll jaws (align with a yawed cube) |
 | space | toggle gripper open/close |
-| x | reset scene (new cube position) |
+| x | reset scene (next target color, new cube positions) |
 | ESC | quit |
+
+The terminal names the target cube after every reset.
 
 **Grasping technique**: the beak-style gripper can't pick off the floor at its default 45°.
 Pitch down with `q` until the gripper is near-vertical, descend with the open jaws *behind* the cube, nudge forward so the cube sits between the jaw tips, close, lift.
 Same technique as the real arm.
 
-## 2. Record a dataset
+## 2. Record datasets
+
+Two datasets: red-only for ACT, and both colors for SmolVLA.
 
 ```bash
-pixi run so101-record --repo-id you/so101_pick_cube --root data/pick_cube \
-    --episodes 20 --display-data
+pixi run so101-record --repo-id you/so101_pick_red --root data/pick_red --episodes 30 --display-data
+pixi run so101-record --repo-id you/so101_pick_two --root data/pick_two --episodes 60 --colors red green
 ```
 
 Motion keys as above, plus: **ENTER** = save episode, **x** = discard & re-record, **ESC** = stop and finalize.
+The terminal tells you which cube to pick before each episode.
 `--display-data` opens a live rerun view of both cameras + joint streams while you record.
 
-Optionally bootstrap more data without teleoperating with the scripted expert (~90 % success, failed attempts are discarded):
+Teleoperating 90 episodes is a chore, so a scripted expert can produce the same datasets headlessly (failed attempts are discarded).
+This is how the results below were produced:
 
 ```bash
-pixi run so101-collect \
-    --repo-id you/so101_pick_cube_scripted --root data/pick_cube_scripted --episodes 25
+pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 30
+pixi run so101-collect --repo-id you/so101_pick_two --root data/pick_two --episodes 60 --colors red green
 ```
 
 To watch it work, run `pixi run -e lerobot python scripts/collect_scripted.py --show-viewer ...` instead; the loop then paces itself to real time.
@@ -62,50 +79,52 @@ To watch it work, run `pixi run -e lerobot python scripts/collect_scripted.py --
 ## 3. Visualize with rerun
 
 ```bash
-pixi run so101-viz --repo-id you/so101_pick_cube --root data/pick_cube --episode-index 0
+pixi run so101-viz --repo-id you/so101_pick_two --root data/pick_two --episode-index 1
 ```
 
 ## 4. Train a policy
 
 Both options use the same `lerobot-train` CLI.
-In either case `--dataset.repo_id` and `--dataset.root` must point at a dataset you actually recorded (e.g. the scripted one: `--dataset.repo_id=you/so101_pick_cube_scripted --dataset.root=data/pick_cube_scripted`).
+`--dataset.repo_id` and `--dataset.root` must point at a dataset you actually recorded.
 If the local root is missing or the dataset wasn't finalized (recorder killed mid-run), lerobot falls back to fetching the repo_id from the HF Hub and fails with a 404.
+`--batch_size=16` fits an 8 GB laptop GPU for both policies.
 
-### 4a. ACT (from scratch)
+### 4a. ACT (from scratch, red cube only)
 
 The fast, small baseline: the best first policy, and it trains on a laptop-class GPU.
 
 ```bash
 pixi run so101-train \
-    --dataset.repo_id=you/so101_pick_cube --dataset.root=data/pick_cube \
+    --dataset.repo_id=you/so101_pick_red --dataset.root=data/pick_red \
     --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
     --output_dir=outputs/train/so101_act --job_name=so101_act \
-    --batch_size=16 --steps=50000 --save_freq=10000 --wandb.enable=true
+    --batch_size=16 --steps=20000 --save_freq=5000 --wandb.enable=true
 ```
 
-About 50k steps is a reasonable starting point for ACT on 20–50 episodes.
+On a laptop RTX 5070 this runs at about 5 steps/s, so 20k steps take under an hour and checkpoints land every 5k steps.
+About 50k steps is a reasonable budget for ACT on 20–50 episodes if the 20k result is not good enough.
 
-### 4b. Fine-tune SmolVLA
+### 4b. Fine-tune SmolVLA (both cubes, language-conditioned)
 
 [SmolVLA](https://huggingface.co/docs/lerobot/smolvla) is lerobot's 450M language-conditioned VLA.
 Instead of training from scratch (`--policy.type=...`), you fine-tune the pretrained base with `--policy.path=lerobot/smolvla_base`, downloaded from the HF Hub on first run.
-The dataset's task string ("Pick up the red cube and lift it.") becomes the language instruction.
+Each episode's task string ("Pick up the red/green cube and lift it.") is the language input, so the two-color dataset is what makes the instruction meaningful.
 
 ```bash
 pixi run so101-train \
-    --dataset.repo_id=you/so101_pick_cube --dataset.root=data/pick_cube \
+    --dataset.repo_id=you/so101_pick_two --dataset.root=data/pick_two \
     --policy.path=lerobot/smolvla_base --policy.device=cuda --policy.push_to_hub=false \
     --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}' \
     --output_dir=outputs/train/so101_smolvla --job_name=so101_smolvla \
-    --batch_size=16 --steps=20000 --save_freq=5000 --wandb.enable=true
+    --batch_size=16 --steps=10000 --save_freq=2500 --wandb.enable=true
 ```
 
 `--rename_map` is required: the pretrained base names its camera inputs `camera1/2/3`, and without the mapping lerobot aborts with a feature-mismatch error on this demo's `front`/`wrist` keys (two of three cameras is fine).
 The mapping is saved into the checkpoint's preprocessor, so eval/rollout below need no extra flags.
 
-20k steps at batch 64 is the lerobot-recommended starting point, roughly 4 h on an A100; expect much longer on a desktop GPU.
-Drop `--batch_size` if you hit OOM.
-SmolVLA wants more data than ACT: ~50 episodes covering the spawn region is a realistic minimum.
+At batch 16 the fine-tune uses about 6 GB of VRAM and runs at roughly 1.4 steps/s on a laptop RTX 5070, so 10k steps take about two hours.
+lerobot's recommended starting point is 20k steps at batch 64, roughly 4 h on an A100.
+SmolVLA wants more data than ACT: the 60 scripted episodes above are a floor, not a target.
 
 By default only the action expert is trained.
 Unfreezing the vision encoder usually improves results substantially on a specialized task like this, at the cost of VRAM and step time:
@@ -114,25 +133,38 @@ Unfreezing the vision encoder usually improves results substantially on a specia
     --policy.freeze_vision_encoder=false --policy.train_expert_only=false
 ```
 
-## 5. Roll out the policy
+## 5. You have a trained policy. Now what?
 
-Success rate over seeded episodes, for any checkpoint (ACT or SmolVLA).
-For language-conditioned policies the recorded task string is the default instruction; override it with `--task "..."`.
+Checkpoints live in `outputs/train/<job>/checkpoints/<step>/pretrained_model/`, with `last` pointing at the newest.
+Each one is a self-contained folder (weights, config, and the pre/post-processors), so it can be loaded, shared, or pushed to the Hub as is.
+
+**Measure it.** Roll it out over seeded episodes and count successes.
+Success means the *target* cube was lifted; lifting the other one is reported separately as "wrong cube", which is the number to watch for language conditioning.
 
 ```bash
-pixi run so101-eval \
-    --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10
-# SmolVLA: --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model
-# to watch: pixi run -e lerobot python scripts/eval_policy.py ... --show
+pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 20
+pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 20 --colors red green
 ```
 
-Because the robot is a lerobot plugin, the official deployment CLI works too:
+For language-conditioned policies the default instruction is the target color's recorded task string; `--task "..."` overrides it.
+Compare checkpoints by pointing `--policy-path` at `checkpoints/005000`, `checkpoints/010000`, ... rather than only `last`.
+
+**Watch it.** Same script with a viewer, from `so101_mujoco_demo/`:
+
+```bash
+pixi run -e lerobot python scripts/eval_policy.py --policy-path ... --episodes 5 --show
+```
+
+**Deploy it.** Because the robot is a lerobot plugin, the official deployment CLI works too, and swapping `--robot.type=so101_follower` points the same command at a real arm:
 
 ```bash
 pixi run -e lerobot lerobot-rollout --strategy.type=base \
-    --policy.path=outputs/train/so101_act/checkpoints/last/pretrained_model \
-    --robot.type=so101_sim --task="Pick up the red cube and lift it." --duration=30
+    --policy.path=outputs/train/so101_smolvla/checkpoints/last/pretrained_model \
+    --robot.type=so101_sim --task="Pick up the green cube and lift it." --duration=30
 ```
+
+**Improve it.** The usual levers, in order of payoff: more (and more varied) demonstrations, more training steps, and for SmolVLA unfreezing the vision encoder.
+`--resume=true --config_path=outputs/train/<job>/checkpoints/last/pretrained_model/train_config.json` continues a run instead of starting over.
 
 ## Sim notes (things that were required to make grasping work)
 
@@ -145,7 +177,9 @@ pixi run -e lerobot lerobot-rollout --strategy.type=base \
   Teleop closes via integrated velocity (`GripperVelocityToJoint`); the scripted expert ramps the target over ~1 s.
 - **Units**: MuJoCo works in radians internally; the Robot plugin boundary is degrees (real SO-101 convention), so datasets and policies match real-robot data.
   The wrist camera is mounted on the gripper body in the MJCF (`camera name="wrist"`), placed so jaws + cube + workspace are all visible.
-- The cube spawn region (`x∈[0.20,0.28], y∈[-0.07,0.04]`) is where grasps are reliable; +y is tighter because the moving jaw is offset toward +y.
+- **Cube slots**: both cubes spawn at `x∈[0.20,0.28]`; the right slot is `y∈[-0.09,-0.05]` and the left slot `y∈[0.0,0.04]`, with random yaw.
+  The gap keeps the open jaws clear of the other cube, and the scripted expert picks either slot 100/100 without touching the distractor.
+  The left slot is narrower because the moving jaw is offset toward +y, which makes grasps there harder.
 
 ## Pointing at the real arm
 

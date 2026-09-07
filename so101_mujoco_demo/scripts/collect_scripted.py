@@ -4,7 +4,12 @@ Bootstraps a dataset or smoke-tests the pipeline without teleoperating.
 Records through the SO101Sim robot interface, so the dataset schema (joint
 actions in degrees, wrist/front cameras) is identical to teleop recordings.
 
-    pixi run collect --repo-id you/so101_pick_cube --episodes 25
+    pixi run so101-collect --repo-id you/so101_pick_cube --episodes 25
+    pixi run so101-collect --repo-id you/so101_pick_two --episodes 50 --colors red green
+
+With several --colors the episodes alternate between them and each episode's
+task string names its target ("Pick up the green cube and lift it."), which
+is what a language-conditioned policy such as SmolVLA trains on.
 """
 
 import argparse
@@ -18,9 +23,9 @@ from lerobot.utils.feature_utils import build_dataset_frame, combine_feature_dic
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from so101_sim.control import EETargetController
-from so101_sim.env import JOINT_NAMES
+from so101_sim.env import JOINT_NAMES, TASKS
 from so101_sim.scripted import scripted_pick
-from sim_pipelines import FPS, TASK
+from sim_pipelines import FPS, add_colors_arg
 
 
 def main():
@@ -30,6 +35,7 @@ def main():
     parser.add_argument("--episodes", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--show-viewer", action="store_true")
+    add_colors_arg(parser)
     args = parser.parse_args()
 
     robot = SO101Sim(SO101SimConfig(show_viewer=args.show_viewer))
@@ -56,7 +62,8 @@ def main():
     try:
         while saved < args.episodes:
             attempts += 1
-            robot.reset_scene(seed=int(rng.integers(0, 2**31)))
+            color = args.colors[saved % len(args.colors)]
+            robot.reset_scene(seed=int(rng.integers(0, 2**31)), target_color=color)
             ctl.reset()
             success = False
             for action_rad in scripted_pick(robot.env, ctl):
@@ -68,7 +75,7 @@ def main():
                 frame = {
                     **build_dataset_frame(features, obs, prefix=OBS_STR),
                     **build_dataset_frame(features, action, prefix=ACTION),
-                    "task": TASK,
+                    "task": TASKS[color],
                 }
                 dataset.add_frame(frame)
                 robot.send_action(action)
@@ -82,7 +89,7 @@ def main():
             if success:
                 dataset.save_episode()
                 saved += 1
-                print(f"episode {saved}/{args.episodes} saved ({attempts} attempts total)")
+                print(f"episode {saved}/{args.episodes} saved: {color} cube ({attempts} attempts total)")
             else:
                 dataset.clear_episode_buffer()
                 print("pick failed, episode discarded")
