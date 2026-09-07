@@ -60,6 +60,9 @@ mjlab = { path = "external/mjlab", editable = true }
 # Same CUDA 12.8 torch build as the lerobot environment (mjlab's own `cu128`
 # extra uses this index), so the wheel is downloaded once and shared.
 torch = { version = ">=2.7,<2.12", index = "https://download.pytorch.org/whl/cu128" }
+# rsl-rl-lib (<=5.5.0) still passes `start_method` to wandb.Settings, which
+# wandb 0.29 removed (0.28 only warns). Drop the pin once rsl-rl stops sending it.
+wandb = "<0.29"
 
 [feature.mjlab.tasks]
 # mjlab's own CLIs. They run from the repo root; logs go to logs/rsl_rl/.
@@ -67,7 +70,7 @@ mjlab-train = { cmd = "train", description = "mjlab train <task-id> ..." }
 mjlab-play = { cmd = "play", description = "mjlab play <task-id> --checkpoint-file ..." }
 mjlab-demo = { cmd = "demo", description = "Pretrained G1 demo in the viewer (no training needed)" }
 mjlab-list-envs = { cmd = "list-envs", description = "List every registered mjlab task" }
-# The two examples. Extra arguments are appended (e.g. --agent.logger tensorboard).
+# The two examples. Extra arguments are appended (e.g., --agent.logger tensorboard).
 g1-walk-train = { cmd = "train Mjlab-Velocity-Flat-Unitree-G1 --env.scene.num-envs 4096", description = "RL: Unitree G1 humanoid learns to walk" }
 g1-walk-play = { cmd = "play Mjlab-Velocity-Flat-Unitree-G1", description = "Watch a trained G1 walking policy" }
 yam-lift-train = { cmd = "train Mjlab-Lift-Cube-Yam-Rgb --env.scene.num-envs 4096", description = "RL: YAM arm learns to lift a cube from RGB" }

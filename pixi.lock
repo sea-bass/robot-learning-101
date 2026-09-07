@@ -276,12 +276,12 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/2d/1e/65b59cf518c106aa755e7f7da3099027738687a862ec785060702a481320/ipython-9.17.1-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/2d/8d/63787e8feda59d981ebc953b6581ccab3c97cf7bfe0a6a407c07b50fc86c/pyvers-0.2.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/32/4b/b99e37f88336009971405cbb7630610322ed6fbfa31e1d7ab3fbf3049a2d/invoke-2.2.1-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/32/fc/d9a9978acffb34ae2a2e5065f421a6e62f3ad6e27ad41229e86025b56fe3/wandb-0.29.0-py3-none-manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/36/d2/b70a31e13d04456d28493f31d2aa087e99eeb2767ef0293b2625727ccb8c/filelock-3.32.5-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/37/4b/cd2eec9642781a8f5b2fb9994e3933a7b259ab18e9d49aeede9b5acf6311/tensorboard-2.21.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/37/f9/f8497ef8b873a8bb2a750ee2a6c5f0fc22258e1acb6245fd237042a6c279/fabric-3.2.3-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3a/13/547360d81e6d88d58492968ffda9f9542854f11310ee556fef14260cc886/zipp-4.1.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3c/2e/8d0c2ab90a8c1d9a24f0399058ab8519a3279d1bd4289511d74e909f060e/markupsafe-3.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
+      - pypi: https://files.pythonhosted.org/packages/3c/7f/f3e23a2ff01848d7a5adab9f307992b92ef99c5e6bff2bd89cd46d651e3a/wandb-0.28.2-py3-none-manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/3e/2d/ca050652104bab2cf55e569db2a178b1b61cb041fef28307f2db383f6d9f/imageio-2.37.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/3e/d0/f301f83ac8dbe53442c5a43f6a39016f94f754d7a9815a875b65e218a307/pynacl-1.6.2-cp38-abi3-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/41/09/5b161152e2d90f7b87f781c2e1267494aef9c32498df793f73ad0a0a494a/matplotlib_inline-0.2.2-py3-none-any.whl
@@ -312,7 +312,6 @@ environments:
       - pypi: https://files.pythonhosted.org/packages/7a/13/e503968fefabd4c6b2650af21e110aa8466fe21432cd7c43a84577a89438/tensorboard_data_server-0.7.2-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/82/5b/eadf6d45de38d30ab603f49393b6cd2cbe7e233af8cf90197e32782b68a9/paramiko-5.0.0-py3-none-any.whl
-      - pypi: https://files.pythonhosted.org/packages/83/97/31bd8b8279e6935a0719f6910ced15e9d5a2cd554b253f6027ce1b5a1c2c/xxhash-4.0.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/84/21/a35af28dcc61f37ed850a2d64c65c701321dfbf25085e469d5559360cbbf/pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/84/d0/205d54408c08b13550c733c4b85429e7ead111c7f0014309637425520a9a/deprecated-1.3.1-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/85/48/9a13d2975803e8cf2777d5ed57b87a0b6ca2cc795f9a4f59796a910bfb80/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_x86_64.whl
@@ -1831,70 +1830,6 @@ packages:
   version: 2.2.1
   sha256: 2413bc441b376e5cd3f55bb5d364f973ad8bdd7bf87e53c79de3c11bf3feecc8
   requires_python: '>=3.6'
-- pypi: https://files.pythonhosted.org/packages/32/fc/d9a9978acffb34ae2a2e5065f421a6e62f3ad6e27ad41229e86025b56fe3/wandb-0.29.0-py3-none-manylinux_2_28_x86_64.whl
-  name: wandb
-  version: 0.29.0
-  sha256: fdfd8845539302d2e3a880bc3d2586c2fd2da9515939cbc69e173d88f9e8c024
-  requires_dist:
-  - click>=8.2.0
-  - opentelemetry-api>=1.43.0
-  - packaging
-  - platformdirs
-  - protobuf>=5,!=5.28.0,!=5.29.0,<8
-  - pydantic>=2.6,<3
-  - pyyaml
-  - requests>=2.0.0,<3
-  - sentry-sdk>=2.0.0
-  - typing-extensions>=4.8,<5
-  - xxhash>=3.0.0
-  - boto3 ; extra == 'aws'
-  - botocore>=1.5.76 ; extra == 'aws'
-  - azure-identity ; extra == 'azure'
-  - azure-storage-blob ; extra == 'azure'
-  - weave>=0.52.41 ; extra == 'eval-table'
-  - weave[video-support]>=0.52.41 ; extra == 'eval-table-video-support'
-  - google-cloud-storage ; extra == 'gcp'
-  - google-cloud-storage ; extra == 'kubeflow'
-  - kubernetes ; extra == 'kubeflow'
-  - minio ; extra == 'kubeflow'
-  - sh ; extra == 'kubeflow'
-  - awscli ; extra == 'launch'
-  - azure-containerregistry ; extra == 'launch'
-  - azure-identity ; extra == 'launch'
-  - azure-storage-blob ; extra == 'launch'
-  - boto3 ; extra == 'launch'
-  - botocore>=1.5.76 ; extra == 'launch'
-  - chardet ; extra == 'launch'
-  - google-auth ; extra == 'launch'
-  - google-cloud-aiplatform ; extra == 'launch'
-  - google-cloud-artifact-registry ; extra == 'launch'
-  - google-cloud-compute ; extra == 'launch'
-  - google-cloud-storage ; extra == 'launch'
-  - iso8601 ; extra == 'launch'
-  - jsonschema ; extra == 'launch'
-  - kubernetes ; extra == 'launch'
-  - kubernetes-asyncio ; extra == 'launch'
-  - nbconvert ; extra == 'launch'
-  - nbformat ; extra == 'launch'
-  - optuna ; extra == 'launch'
-  - pydantic ; extra == 'launch'
-  - pyyaml>=6.0.0 ; extra == 'launch'
-  - tomli ; extra == 'launch'
-  - tornado>=6.5.0 ; extra == 'launch'
-  - typing-extensions ; extra == 'launch'
-  - bokeh ; extra == 'media'
-  - imageio>=2.28.1 ; extra == 'media'
-  - moviepy>=1.0.0 ; extra == 'media'
-  - numpy ; extra == 'media'
-  - pillow ; extra == 'media'
-  - plotly>=5.18.0 ; extra == 'media'
-  - rdkit ; extra == 'media'
-  - soundfile ; extra == 'media'
-  - cloudpickle ; extra == 'models'
-  - cwsandbox[cli]>=1.0.0 ; python_full_version >= '3.11' and extra == 'sandbox'
-  - sweeps>=0.2.0 ; extra == 'sweeps'
-  - wandb-workspaces ; extra == 'workspaces'
-  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/33/d1/8bb87d21e9aeb323cc03034f5eaf2c8f69841e40e4853c2627edf8111ed3/termcolor-3.3.0-py3-none-any.whl
   name: termcolor
   version: 3.3.0
@@ -1963,6 +1898,69 @@ packages:
   version: 3.0.3
   sha256: d6dd0be5b5b189d31db7cda48b91d7e0a9795f31430b7f271219ab30f1d3ac9d
   requires_python: '>=3.9'
+- pypi: https://files.pythonhosted.org/packages/3c/7f/f3e23a2ff01848d7a5adab9f307992b92ef99c5e6bff2bd89cd46d651e3a/wandb-0.28.2-py3-none-manylinux_2_28_x86_64.whl
+  name: wandb
+  version: 0.28.2
+  sha256: 1db698d107871c66b2dcbb0cf4dc2af1ddb159ba94e957e890158ec60ab2de54
+  requires_dist:
+  - click>=8.2.0
+  - opentelemetry-api>=1.43.0
+  - packaging
+  - platformdirs
+  - protobuf>=5,!=5.28.0,!=5.29.0,<8
+  - pydantic>=2.6,<3
+  - pyyaml
+  - requests>=2.0.0,<3
+  - sentry-sdk>=2.0.0
+  - typing-extensions>=4.8,<5
+  - boto3 ; extra == 'aws'
+  - botocore>=1.5.76 ; extra == 'aws'
+  - azure-identity ; extra == 'azure'
+  - azure-storage-blob ; extra == 'azure'
+  - weave>=0.52.41 ; extra == 'eval-table'
+  - weave[video-support]>=0.52.41 ; extra == 'eval-table-video-support'
+  - google-cloud-storage ; extra == 'gcp'
+  - google-cloud-storage ; extra == 'kubeflow'
+  - kubernetes ; extra == 'kubeflow'
+  - minio ; extra == 'kubeflow'
+  - sh ; extra == 'kubeflow'
+  - awscli ; extra == 'launch'
+  - azure-containerregistry ; extra == 'launch'
+  - azure-identity ; extra == 'launch'
+  - azure-storage-blob ; extra == 'launch'
+  - boto3 ; extra == 'launch'
+  - botocore>=1.5.76 ; extra == 'launch'
+  - chardet ; extra == 'launch'
+  - google-auth ; extra == 'launch'
+  - google-cloud-aiplatform ; extra == 'launch'
+  - google-cloud-artifact-registry ; extra == 'launch'
+  - google-cloud-compute ; extra == 'launch'
+  - google-cloud-storage ; extra == 'launch'
+  - iso8601 ; extra == 'launch'
+  - jsonschema ; extra == 'launch'
+  - kubernetes ; extra == 'launch'
+  - kubernetes-asyncio ; extra == 'launch'
+  - nbconvert ; extra == 'launch'
+  - nbformat ; extra == 'launch'
+  - optuna ; extra == 'launch'
+  - pydantic ; extra == 'launch'
+  - pyyaml>=6.0.0 ; extra == 'launch'
+  - tomli ; extra == 'launch'
+  - tornado>=6.5.0 ; extra == 'launch'
+  - typing-extensions ; extra == 'launch'
+  - bokeh ; extra == 'media'
+  - imageio>=2.28.1 ; extra == 'media'
+  - moviepy>=1.0.0 ; extra == 'media'
+  - numpy ; extra == 'media'
+  - pillow ; extra == 'media'
+  - plotly>=5.18.0 ; extra == 'media'
+  - rdkit ; extra == 'media'
+  - soundfile ; extra == 'media'
+  - cloudpickle ; extra == 'models'
+  - cwsandbox[cli]>=0.20.0 ; python_full_version >= '3.11' and extra == 'sandbox'
+  - sweeps>=0.2.0 ; extra == 'sweeps'
+  - wandb-workspaces ; extra == 'workspaces'
+  requires_python: '>=3.10'
 - pypi: https://files.pythonhosted.org/packages/3e/2d/ca050652104bab2cf55e569db2a178b1b61cb041fef28307f2db383f6d9f/imageio-2.37.4-py3-none-any.whl
   name: imageio
   version: 2.37.4

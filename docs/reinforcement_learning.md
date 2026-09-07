@@ -27,6 +27,29 @@ pixi run g1-walk-train --agent.max-iterations 2000 --env.scene.num-envs 2048
 
 On a laptop RTX 5070 (8 GB) 4096 environments run at about 1.1 s per iteration, so 2000 iterations take 40 minutes.
 In that run the mean reward went from -1 to 65 and the episode length hit its 1000-step cap (no more falls) after about 800 iterations.
+
+### Watch it learn while it trains
+
+Training itself is headless: the 4096 environments run on the GPU and nothing is drawn.
+To see the policy improve, run `play` in a second terminal with the browser viewer, which can hot-swap checkpoints as training writes them.
+Training saves `model_<iter>.pt` every 50 iterations (`--agent.save-interval`), starting with `model_0.pt`, so there is something to load within a minute of starting.
+
+```bash
+# Terminal 1
+pixi run g1-walk-train
+# Terminal 2: point play at the run that is training
+pixi run g1-walk-play --viewer viser --checkpoint-file logs/rsl_rl/g1_velocity/<timestamp>/model_0.pt
+pixi run g1-walk-play --viewer viser --wandb-run-path <entity>/mjlab/<run-id>   # or fetch from W&B
+```
+
+The W&B run path is printed when training starts (`View run at https://wandb.ai/<entity>/mjlab/runs/<run-id>`).
+Open http://localhost:8080 and switch to the *Checkpoints* tab in the side panel.
+*Sync* refreshes the dropdown with the checkpoints saved so far, *Use Latest* loads the newest one, and picking any entry in the dropdown loads that one.
+The list does not refresh on its own, so click *Sync* or *Use Latest* whenever you want to see newer weights.
+The native MuJoCo viewer has no checkpoint tab: it plays the one checkpoint it was started with, so restart it to see a newer one.
+
+Alternatively, let training record clips itself with `--video True`: every 2000 steps (`--video-interval`) it renders 200 steps (`--video-length`) to `videos/train/` in the run directory, and the W&B logger uploads each clip to the run page.
+
 Watch a checkpoint:
 
 ```bash
@@ -39,16 +62,16 @@ Dummy agents are handy for sanity-checking a task before training: `--agent zero
 
 ## 2. Arm manipulation from pixels (i2rt YAM)
 
-`Mjlab-Lift-Cube-Yam-Rgb`: a YAM arm lifts a cube using an RGB camera observation plus proprioception.
 `Mjlab-Lift-Cube-Yam` is the state-based variant, which trains faster.
 The task lives in `external/mjlab/src/mjlab/tasks/manipulation/`.
+`Mjlab-Lift-Cube-Yam-Rgb`: a YAM arm lifts a cube using an RGB camera observation plus proprioception.
 
 ```bash
 pixi run yam-lift-train                      # 4096 envs, 3k iterations by default
 pixi run yam-lift-play --checkpoint-file logs/rsl_rl/yam_lift_cube_vision/<timestamp>/model_3000.pt
 ```
 
-On a laptop RTX 5070 4096 environments run at about 4.7 s per iteration, and the episode success rate (`Metrics/lift_height/episode_success` in TensorBoard) passes 80% after roughly 700 iterations, about an hour in.
+On a laptop RTX 5070 4096 environments run at about 4.7 s per iteration, and the episode success rate passes 80% after roughly 700 iterations, about an hour in.
 If rendering 4096 cameras does not fit, drop `--env.scene.num-envs` (e.g. 1024).
 
 ## You have a trained policy. Now what?

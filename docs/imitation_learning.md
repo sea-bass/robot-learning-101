@@ -159,14 +159,14 @@ pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretr
 Same thing in the MuJoCo viewer (from `so101_mujoco_demo/`):
 
 ```bash
-pixi run -e lerobot so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --show
+pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --show
 ```
 
 ACT has no language input, so it can only ever go for the cube it was trained on.
 Asking it for the green cube shows that; expect failures and "wrong cube" picks:
 
 ```bash
-pixi run -e lerobot so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --colors green
+pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --colors green
 ```
 
 Deploy-style rollout for 30 s in the viewer (from `so101_mujoco_demo/`):
