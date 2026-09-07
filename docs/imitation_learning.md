@@ -116,11 +116,11 @@ pixi run so101-train \
     --policy.path=lerobot/smolvla_base --policy.device=cuda --policy.push_to_hub=false \
     --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}' \
     --output_dir=outputs/train/so101_smolvla --job_name=so101_smolvla \
-    --batch_size=16 --steps=10000 --save_freq=2500 --wandb.enable=true
+    --batch_size=16 --steps=20000 --save_freq=5000 --wandb.enable=true
 ```
 
 `--rename_map` is required: the pretrained base names its camera inputs `camera1/2/3`, and without the mapping lerobot aborts with a feature-mismatch error on this demo's `front`/`wrist` keys (two of three cameras is fine).
-The mapping is saved into the checkpoint's preprocessor, so eval/rollout below need no extra flags.
+The mapping is saved into the checkpoint's preprocessor, so `so101-eval` needs no extra flags; `lerobot-rollout` checks camera names itself and needs the same `--rename_map` again.
 
 At batch 16 the fine-tune uses about 6 GB of VRAM and runs at roughly 1.4 steps/s on a laptop RTX 5070, so 10k steps take about two hours.
 lerobot's recommended starting point is 20k steps at batch 64, roughly 4 h on an A100.
@@ -138,33 +138,77 @@ Unfreezing the vision encoder usually improves results substantially on a specia
 Checkpoints live in `outputs/train/<job>/checkpoints/<step>/pretrained_model/`, with `last` pointing at the newest.
 Each one is a self-contained folder (weights, config, and the pre/post-processors), so it can be loaded, shared, or pushed to the Hub as is.
 
-**Measure it.** Roll it out over seeded episodes and count successes.
-Success means the *target* cube was lifted; lifting the other one is reported separately as "wrong cube", which is the number to watch for language conditioning.
+There are two ways to run a checkpoint in the sim:
+
+- `scripts/eval_policy.py` (the `so101-eval` task): seeded episodes with a success count.
+  Success means the *target* cube was lifted; lifting the other one is reported separately as "wrong cube", which is the number to watch for language conditioning.
+- `lerobot-rollout`: LeRobot's deployment CLI, the same command you would use on a real arm.
+  `--strategy.type=base` means "just run the policy, record nothing"; `--fps=25` matches the rate the datasets were recorded at.
+
+The `so101-eval` task runs inside `so101_mujoco_demo/` by itself; the direct `python` and `lerobot-rollout` commands below must be run from that directory.
+Every command is a single line so that the JSON in `--rename_map` survives copy-paste.
+
+### 5a. ACT
+
+Headless success rate over 20 seeded episodes:
 
 ```bash
 pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 20
+```
+
+Same thing in the MuJoCo viewer (from `so101_mujoco_demo/`):
+
+```bash
+pixi run -e lerobot so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --show
+```
+
+ACT has no language input, so it can only ever go for the cube it was trained on.
+Asking it for the green cube shows that; expect failures and "wrong cube" picks:
+
+```bash
+pixi run -e lerobot so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 10 --colors green
+```
+
+Deploy-style rollout for 30 s in the viewer (from `so101_mujoco_demo/`):
+
+```bash
+pixi run -e lerobot lerobot-rollout --strategy.type=base --fps=25 --duration=30 --policy.path=outputs/train/so101_act/checkpoints/last/pretrained_model --robot.type=so101_sim
+```
+
+### 5b. SmolVLA
+
+Headless success rate, alternating red and green instructions over 20 episodes:
+
+```bash
 pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 20 --colors red green
 ```
 
-For language-conditioned policies the default instruction is the target color's recorded task string; `--task "..."` overrides it.
+The instruction defaults to the target color's recorded task string; `--task "..."` overrides it, which is how you would test rephrasings.
+In the viewer (from `so101_mujoco_demo/`):
+
+```bash
+pixi run -e lerobot python scripts/eval_policy.py --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 10 --colors red green --show
+```
+
+Deploy-style rollout (from `so101_mujoco_demo/`).
+`lerobot-rollout` compares camera names before loading the checkpoint's preprocessor, so the `--rename_map` from training is needed again, and `--robot.target_color` only affects which pick the sim reports as a success:
+
+```bash
+pixi run -e lerobot lerobot-rollout --strategy.type=base --fps=25 --duration=30 --policy.path=outputs/train/so101_smolvla/checkpoints/last/pretrained_model --robot.type=so101_sim --robot.target_color=green --task="Pick up the green cube and lift it." --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}'
+```
+
+Same for the red cube:
+
+```bash
+pixi run -e lerobot lerobot-rollout --strategy.type=base --fps=25 --duration=30 --policy.path=outputs/train/so101_smolvla/checkpoints/last/pretrained_model --robot.type=so101_sim --robot.target_color=red --task="Pick up the red cube and lift it." --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}'
+```
+
+### 5c. Comparing and improving
+
 Compare checkpoints by pointing `--policy-path` at `checkpoints/005000`, `checkpoints/010000`, ... rather than only `last`.
-
-**Watch it.** Same script with a viewer, from `so101_mujoco_demo/`:
-
-```bash
-pixi run -e lerobot python scripts/eval_policy.py --policy-path ... --episodes 5 --show
-```
-
-**Deploy it.** Because the robot is a lerobot plugin, the official deployment CLI works too, and swapping `--robot.type=so101_follower` points the same command at a real arm:
-
-```bash
-pixi run -e lerobot lerobot-rollout --strategy.type=base \
-    --policy.path=outputs/train/so101_smolvla/checkpoints/last/pretrained_model \
-    --robot.type=so101_sim --task="Pick up the green cube and lift it." --duration=30
-```
-
-**Improve it.** The usual levers, in order of payoff: more (and more varied) demonstrations, more training steps, and for SmolVLA unfreezing the vision encoder.
+The usual levers, in order of payoff: more (and more varied) demonstrations, more training steps, and for SmolVLA unfreezing the vision encoder.
 `--resume=true --config_path=outputs/train/<job>/checkpoints/last/pretrained_model/train_config.json` continues a run instead of starting over.
+Swapping `--robot.type=so101_follower` in the rollout commands points the same policy at a real arm.
 
 ## Sim notes (things that were required to make grasping work)
 
