@@ -1,0 +1,13 @@
+[project]
+name = "lerobot_robot_so101_sim"
+version = "0.1.0"
+description = "LeRobot robot plugin: SO-101 arm simulated in MuJoCo (pick-cube scene)"
+requires-python = ">=3.10"
+dependencies = ["lerobot", "so101-sim", "mujoco>=3.1", "numpy"]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lerobot_robot_so101_sim*"]

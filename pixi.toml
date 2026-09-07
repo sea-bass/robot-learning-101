@@ -1,0 +1,74 @@
+# robot-learning-101 — one pixi manifest drives every example.
+#
+# Two environments, one per learning framework (they have different dependency
+# trees, so they are kept apart):
+#   lerobot  imitation learning: the SO-101 MuJoCo demo on top of LeRobot
+#   mjlab    reinforcement learning: mjlab's G1 humanoid and YAM arm tasks
+#
+# Both frameworks are git submodules under external/ and are installed as
+# editable packages, so edits there take effect immediately.
+#
+# Tasks are prefixed (so101-*, mjlab-*, g1-*, yam-*) and each lives in exactly
+# one environment, so `pixi run <task>` picks the right one automatically. To
+# run anything else, name the environment: `pixi run -e lerobot python ...`.
+
+[workspace]
+name = "robot-learning-101"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+python = "3.12.*"
+
+[activation.env]
+# Keep ~/.local site-packages from shadowing the environment.
+PYTHONNOUSERSITE = "1"
+
+[environments]
+lerobot = ["lerobot"]
+mjlab = ["mjlab"]
+
+# --------------------------------------------------------------------------
+# LeRobot: SO-101 MuJoCo demo (teleop -> dataset -> ACT / SmolVLA -> rollout)
+# --------------------------------------------------------------------------
+
+[feature.lerobot.pypi-dependencies]
+# training = dataset + wandb, dataset_viz = rerun, placo-dep = IK backend,
+# smolvla = transformers + accelerate for SmolVLA fine-tuning
+lerobot = { path = "external/lerobot", editable = true, extras = ["training", "dataset_viz", "placo-dep", "smolvla"] }
+so101-sim = { path = "so101_mujoco_demo", editable = true }
+lerobot-robot-so101-sim = { path = "so101_mujoco_demo/plugins/so101_sim_robot", editable = true }
+lerobot-teleoperator-keyboard-pose = { path = "so101_mujoco_demo/plugins/keyboard_pose_teleop", editable = true }
+
+[feature.lerobot.tasks]
+# All run from so101_mujoco_demo/, so relative paths (data/, outputs/) land there.
+so101-teleoperate = { cmd = "python scripts/teleoperate.py", cwd = "so101_mujoco_demo", description = "Drive the simulated SO-101 with the keyboard (no recording)" }
+so101-record = { cmd = "python scripts/record.py", cwd = "so101_mujoco_demo", description = "Keyboard teleop -> LeRobotDataset" }
+so101-viz = { cmd = "lerobot-dataset-viz", cwd = "so101_mujoco_demo", description = "Replay a dataset episode in rerun" }
+so101-train = { cmd = "lerobot-train", cwd = "so101_mujoco_demo", description = "lerobot-train: ACT from scratch or SmolVLA fine-tune" }
+# Headless EGL rendering. For --show / --show-viewer run the script directly
+# (`pixi run -e lerobot python scripts/...`) so MuJoCo uses its GLFW window.
+so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Scripted expert -> LeRobotDataset (headless)" }
+so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Success rate of a trained policy in the sim (headless)" }
+
+# --------------------------------------------------------------------------
+# mjlab: GPU-parallel RL (needs an NVIDIA GPU)
+# --------------------------------------------------------------------------
+
+[feature.mjlab.pypi-dependencies]
+mjlab = { path = "external/mjlab", editable = true }
+# Same CUDA 12.8 torch build as the lerobot environment (mjlab's own `cu128`
+# extra uses this index), so the wheel is downloaded once and shared.
+torch = { version = ">=2.7,<2.12", index = "https://download.pytorch.org/whl/cu128" }
+
+[feature.mjlab.tasks]
+# mjlab's own CLIs. They run from the repo root; logs go to logs/rsl_rl/.
+mjlab-train = { cmd = "train", description = "mjlab train <task-id> ..." }
+mjlab-play = { cmd = "play", description = "mjlab play <task-id> --checkpoint-file ..." }
+mjlab-demo = { cmd = "demo", description = "Pretrained G1 demo in the viewer (no training needed)" }
+mjlab-list-envs = { cmd = "list-envs", description = "List every registered mjlab task" }
+# The two examples. Extra arguments are appended (e.g. --agent.logger tensorboard).
+g1-walk-train = { cmd = "train Mjlab-Velocity-Flat-Unitree-G1 --env.scene.num-envs 4096", description = "RL: Unitree G1 humanoid learns to walk" }
+g1-walk-play = { cmd = "play Mjlab-Velocity-Flat-Unitree-G1", description = "Watch a trained G1 walking policy" }
+yam-lift-train = { cmd = "train Mjlab-Lift-Cube-Yam-Rgb --env.scene.num-envs 4096", description = "RL: YAM arm learns to lift a cube from RGB" }
+yam-lift-play = { cmd = "play Mjlab-Lift-Cube-Yam-Rgb", description = "Watch a trained YAM lift-cube policy" }

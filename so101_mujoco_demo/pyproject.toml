@@ -1,0 +1,21 @@
+[project]
+name = "so101-sim"
+version = "0.1.0"
+description = "SO-101 MuJoCo pick-cube demo: keyboard teleop + LeRobot data collection"
+requires-python = ">=3.12"
+dependencies = [
+    "mujoco>=3.1",
+    "gymnasium>=0.29",
+    "numpy",
+    "pynput",
+]
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["so101_sim*"]
+
+[tool.setuptools.package-data]
+so101_sim = ["model/*.xml", "model/assets/*.stl"]
