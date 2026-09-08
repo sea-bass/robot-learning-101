@@ -4,6 +4,7 @@ Hands-on examples of robot learning, runnable end to end in simulation:
 
 - **Reinforcement learning** with [mjlab](https://github.com/mujocolab/mjlab): a humanoid learns to walk, an arm learns to lift a cube.
 - **Imitation learning** with [LeRobot](https://github.com/huggingface/lerobot): teleoperate an SO-101 arm, record demonstrations, train a policy.
+- **ROS 2 and LLMs** with [RoboStack](https://robostack.github.io) and [ros-mcp-server](https://github.com/robotmcp/ros-mcp-server): a language model drives turtlesim through an MCP server.
 
 ## Install
 
@@ -21,10 +22,11 @@ Hands-on examples of robot learning, runnable end to end in simulation:
    pixi install --all
    ```
 
-You need Linux and an NVIDIA GPU for training.
+You need Linux, and an NVIDIA GPU for training; the ROS 2 example runs on any machine.
 `pixi task list` shows every available command.
 
 ## Guides
 
 - [Reinforcement learning](docs/reinforcement_learning.md)
 - [Imitation learning](docs/imitation_learning.md)
+- [ROS 2 turtlesim driven by an LLM](docs/ros2.md)

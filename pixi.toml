@@ -1,16 +1,18 @@
 # robot-learning-101 — one pixi manifest drives every example.
 #
-# Two environments, one per learning framework (they have different dependency
-# trees, so they are kept apart):
+# Three environments, one per framework (they have different dependency trees,
+# so they are kept apart):
 #   lerobot  imitation learning: the SO-101 MuJoCo demo on top of LeRobot
 #   mjlab    reinforcement learning: mjlab's G1 humanoid and YAM arm tasks
+#   ros      ROS 2 Jazzy from RoboStack: turtlesim + an MCP server for LLM control
 #
-# Both frameworks are git submodules under external/ and are installed as
+# LeRobot and mjlab are git submodules under external/ and are installed as
 # editable packages, so edits there take effect immediately.
 #
-# Tasks are prefixed (so101-*, mjlab-*, g1-*, yam-*) and each lives in exactly
-# one environment, so `pixi run <task>` picks the right one automatically. To
-# run anything else, name the environment: `pixi run -e lerobot python ...`.
+# Tasks are prefixed (so101-*, mjlab-*, g1-*, yam-*, ros-*) and each lives in
+# exactly one environment, so `pixi run <task>` picks the right one
+# automatically. To run anything else, name the environment:
+# `pixi run -e lerobot python ...`, `pixi run -e ros ros2 topic list`.
 
 [workspace]
 name = "robot-learning-101"
@@ -27,6 +29,7 @@ PYTHONNOUSERSITE = "1"
 [environments]
 lerobot = ["lerobot"]
 mjlab = ["mjlab"]
+ros = ["ros"]
 
 # --------------------------------------------------------------------------
 # LeRobot: SO-101 MuJoCo demo (teleop -> dataset -> ACT / SmolVLA -> rollout)
@@ -75,3 +78,31 @@ g1-walk-train = { cmd = "train Mjlab-Velocity-Flat-Unitree-G1 --env.scene.num-en
 g1-walk-play = { cmd = "play Mjlab-Velocity-Flat-Unitree-G1", description = "Watch a trained G1 walking policy" }
 yam-lift-train = { cmd = "train Mjlab-Lift-Cube-Yam-Rgb --env.scene.num-envs 4096", description = "RL: YAM arm learns to lift a cube from RGB" }
 yam-lift-play = { cmd = "play Mjlab-Lift-Cube-Yam-Rgb", description = "Watch a trained YAM lift-cube policy" }
+
+# --------------------------------------------------------------------------
+# ROS 2 Jazzy via RoboStack: turtlesim, rqt, rosbridge, and the ros-mcp server
+# --------------------------------------------------------------------------
+# RoboStack publishes ROS as conda packages. Its channel is scoped to this
+# feature and is searched before conda-forge; the packages ship activation
+# scripts, so there is no setup.bash to source.
+[feature.ros]
+channels = ["https://prefix.dev/robostack-jazzy"]
+
+[feature.ros.dependencies]
+ros-jazzy-ros-base = "*"             # rclpy, ros2 CLI, launch
+ros-jazzy-turtlesim = "*"            # the simulator
+ros-jazzy-rosbridge-suite = "*"      # ROS <-> WebSocket bridge, what ros-mcp talks to
+
+[feature.ros.pypi-dependencies]
+ros-mcp = "*"                        # MCP server (robotmcp/ros-mcp-server), pure Python
+fastmcp = ">=2.11.3,<3"              # ros-mcp 3.1 imports fastmcp 2.x internals; 3.x/4.x break it
+mcp = ">=1.13,<2"
+
+[feature.ros.tasks]
+# The ROS side: turtlesim, plus the rosbridge websocket the MCP server connects to.
+ros-sim = { cmd = "ros2 run turtlesim turtlesim_node", description = "The turtlesim window" }
+ros-bridge = { cmd = "ros2 launch rosbridge_server rosbridge_websocket_launch.xml", description = "rosbridge websocket on :9090 (what ros-mcp talks to)" }
+ros-launch = { cmd = "ros2 launch launch/turtlesim_rosbridge.launch.py", cwd = "ros2_turtlesim", description = "turtlesim + rosbridge together (port:=9090)" }
+# The LLM side: an MCP server over stdio. Register it with
+#   claude mcp add ros-mcp -- pixi run --manifest-path <this repo>/pixi.toml ros-mcp-server
+ros-mcp-server = { cmd = "ros-mcp --transport=stdio", description = "MCP server over stdio; register it with `claude mcp add`" }
