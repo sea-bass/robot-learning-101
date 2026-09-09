@@ -144,6 +144,14 @@ The usual next lever on a real-robot dataset is unfreezing the VLM (`--policy.fr
 Checkpoints live in `outputs/train/<job>/checkpoints/<step>/pretrained_model/`, with `last` pointing at the newest.
 Each one is a self-contained folder (weights, config, and the pre/post-processors), so it can be loaded, shared, or pushed to the Hub as is.
 
+To see what you actually trained, print the model's module tree and per-block parameter counts (`--no-tree` for just the counts, `--depth N` to expand nested blocks):
+
+```bash
+pixi run so101-inspect --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model
+```
+
+For ACT this shows the ResNet-18 backbone, the CVAE encoder, and the transformer encoder/decoder (about 52M parameters, all trainable). For SmolVLA it shows the frozen 350M-parameter VLM next to the 100M-parameter action expert that fine-tuning actually updates.
+
 There are two ways to run a checkpoint in the sim:
 
 - `scripts/eval_policy.py` (the `so101-eval` task): seeded episodes with a success count.

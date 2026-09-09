@@ -49,6 +49,7 @@ so101-train = { cmd = "lerobot-train", cwd = "so101_mujoco_demo", description = 
 # Headless EGL rendering. For --show / --show-viewer run the script directly
 # (`pixi run -e lerobot python scripts/...`) so MuJoCo uses its GLFW window.
 so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Scripted expert -> LeRobotDataset (headless)" }
+so101-inspect = { cmd = "python scripts/inspect_policy.py", cwd = "so101_mujoco_demo", description = "Print a trained policy's module tree and parameter counts" }
 so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Success rate of a trained policy in the sim (headless)" }
 
 # --------------------------------------------------------------------------
