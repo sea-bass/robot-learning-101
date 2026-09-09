@@ -1,7 +1,7 @@
 """Record a LeRobotDataset by keyboard-teleoperating the SO-101 in MuJoCo.
 
-    pixi run so101-record --repo-id you/so101_pick_cube --episodes 20 --display-data
-    pixi run so101-record --repo-id you/so101_pick_two --episodes 40 --colors red green
+    pixi run so101-record --repo-id you/so101_pick_cube --episodes 100 --display-data
+    pixi run so101-record --repo-id you/so101_pick_two --episodes 200 --colors red green
 
 The scene has a red and a green cube. Episodes alternate through --colors and
 the terminal tells you which cube to pick; that color's task string is stored

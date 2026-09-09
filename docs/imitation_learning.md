@@ -54,23 +54,23 @@ Same technique as the real arm.
 
 ## 2. Record datasets
 
-Two datasets: red-only for ACT, and both colors for SmolVLA.
+Two datasets: red-only for ACT, and both colors for SmolVLA, 100 episodes per color.
 
 ```bash
-pixi run so101-record --repo-id you/so101_pick_red --root data/pick_red --episodes 30 --display-data
-pixi run so101-record --repo-id you/so101_pick_two --root data/pick_two --episodes 60 --colors red green
+pixi run so101-record --repo-id you/so101_pick_red --root data/pick_red --episodes 100 --display-data
+pixi run so101-record --repo-id you/so101_pick_two --root data/pick_two --episodes 200 --colors red green
 ```
 
 Motion keys as above, plus: **ENTER** = save episode, **x** = discard & re-record, **ESC** = stop and finalize.
 The terminal tells you which cube to pick before each episode.
 `--display-data` opens a live rerun view of both cameras + joint streams while you record.
 
-Teleoperating 90 episodes is a chore, so a scripted expert can produce the same datasets headlessly (failed attempts are discarded).
-This is how the results below were produced:
+Teleoperating 100 episodes is a chore, so a scripted expert can produce the same datasets headlessly (failed attempts are discarded).
+This is how the results below were produced; each run takes a few minutes:
 
 ```bash
-pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 30
-pixi run so101-collect --repo-id you/so101_pick_two --root data/pick_two --episodes 60 --colors red green
+pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 100
+pixi run so101-collect --repo-id you/so101_pick_two --root data/pick_two --episodes 200 --colors red green
 ```
 
 To watch it work, run `pixi run -e lerobot python scripts/collect_scripted.py --show-viewer ...` instead; the loop then paces itself to real time.
@@ -98,11 +98,11 @@ pixi run so101-train \
     --dataset.repo_id=you/so101_pick_red --dataset.root=data/pick_red \
     --policy.type=act --policy.device=cuda --policy.push_to_hub=false \
     --output_dir=outputs/train/so101_act --job_name=so101_act \
-    --batch_size=16 --steps=20000 --save_freq=5000 --wandb.enable=true
+    --batch_size=16 --steps=25000 --save_freq=5000 --wandb.enable=true
 ```
 
-On a laptop RTX 5070 this runs at about 5 steps/s, so 20k steps take under an hour and checkpoints land every 5k steps.
-About 50k steps is a reasonable budget for ACT on 20–50 episodes if the 20k result is not good enough.
+On a laptop RTX 5070 this runs at about 5 steps/s, so 25k steps take about 80 minutes and checkpoints land every 5k steps.
+More steps beyond that point do not help; more demonstrations do.
 
 ### 4b. Fine-tune SmolVLA (both cubes, language-conditioned)
 
@@ -116,22 +116,28 @@ pixi run so101-train \
     --policy.path=lerobot/smolvla_base --policy.device=cuda --policy.push_to_hub=false \
     --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}' \
     --output_dir=outputs/train/so101_smolvla --job_name=so101_smolvla \
-    --batch_size=16 --steps=20000 --save_freq=5000 --wandb.enable=true
+    --batch_size=16 --steps=25000 --save_freq=5000 --wandb.enable=true
+```
+
+Actually, this model requires more data, you may want to train for about 60k steps as shown below.
+This requires modifying the learning rate scheduler, which by default tapers down after 30k steps.
+
+```bash
+pixi run so101-train \
+    --dataset.repo_id=you/so101_pick_two --dataset.root=data/pick_two \
+    --policy.path=lerobot/smolvla_base --policy.device=cuda --policy.push_to_hub=false \
+    --rename_map='{"observation.images.front": "observation.images.camera1", "observation.images.wrist": "observation.images.camera2"}' \
+    --output_dir=outputs/train/so101_smolvla_60k --job_name=so101_smolvla_60k \
+    --batch_size=16 --steps=60000 --policy.scheduler_decay_steps=60000 --save_freq=10000 --wandb.enable=true
 ```
 
 `--rename_map` is required: the pretrained base names its camera inputs `camera1/2/3`, and without the mapping lerobot aborts with a feature-mismatch error on this demo's `front`/`wrist` keys (two of three cameras is fine).
 The mapping is saved into the checkpoint's preprocessor, so `so101-eval` needs no extra flags; `lerobot-rollout` checks camera names itself and needs the same `--rename_map` again.
 
-At batch 16 the fine-tune uses about 6 GB of VRAM and runs at roughly 1.4 steps/s on a laptop RTX 5070, so 10k steps take about two hours.
-lerobot's recommended starting point is 20k steps at batch 64, roughly 4 h on an A100.
-SmolVLA wants more data than ACT: the 60 scripted episodes above are a floor, not a target.
+At batch 16 the fine-tune uses about 5 GB of VRAM and runs at roughly 1.7 steps/s on a laptop RTX 5070, so 60k steps take about ten hours (run it overnight).
 
-By default only the action expert is trained.
-Unfreezing the vision encoder usually improves results substantially on a specialized task like this, at the cost of VRAM and step time:
-
-```bash
-    --policy.freeze_vision_encoder=false --policy.train_expert_only=false
-```
+By default only the action expert is trained, and that is enough here.
+The usual next lever on a real-robot dataset is unfreezing the VLM (`--policy.freeze_vision_encoder=false --policy.train_expert_only=false`), but note that `train_expert_only=false` makes the whole 450M-parameter VLM trainable, not just the vision encoder; its optimizer state alone needs about 7 GB, so it does not fit an 8 GB GPU at any batch size.
 
 ## 5. You have a trained policy. Now what?
 
@@ -150,10 +156,10 @@ Every command is a single line so that the JSON in `--rename_map` survives copy-
 
 ### 5a. ACT
 
-Headless success rate over 20 seeded episodes:
+Headless success rate over 50 seeded episodes (about a minute; the seeds are fixed, so checkpoints are compared on identical scenes):
 
 ```bash
-pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 20
+pixi run so101-eval --policy-path outputs/train/so101_act/checkpoints/last/pretrained_model --episodes 50
 ```
 
 Same thing in the MuJoCo viewer (from `so101_mujoco_demo/`):
@@ -177,10 +183,10 @@ pixi run -e lerobot lerobot-rollout --strategy.type=base --fps=25 --duration=30 
 
 ### 5b. SmolVLA
 
-Headless success rate, alternating red and green instructions over 20 episodes:
+Headless success rate, alternating red and green instructions over 50 episodes:
 
 ```bash
-pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 20 --colors red green
+pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 50 --colors red green
 ```
 
 The instruction defaults to the target color's recorded task string; `--task "..."` overrides it, which is how you would test rephrasings.

@@ -4,8 +4,8 @@ Bootstraps a dataset or smoke-tests the pipeline without teleoperating.
 Records through the SO101Sim robot interface, so the dataset schema (joint
 actions in degrees, wrist/front cameras) is identical to teleop recordings.
 
-    pixi run so101-collect --repo-id you/so101_pick_cube --episodes 25
-    pixi run so101-collect --repo-id you/so101_pick_two --episodes 50 --colors red green
+    pixi run so101-collect --repo-id you/so101_pick_cube --episodes 100
+    pixi run so101-collect --repo-id you/so101_pick_two --episodes 200 --colors red green
 
 With several --colors the episodes alternate between them and each episode's
 task string names its target ("Pick up the green cube and lift it."), which
