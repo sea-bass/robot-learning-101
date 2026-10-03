@@ -1,9 +1,8 @@
-# robot-learning-101 — one pixi manifest drives every example.
+# robot-learning-101 Pixi manifest.
 #
-# Two environments, one per learning framework (they have different dependency
-# trees, so they are kept apart):
-#   lerobot  imitation learning: the SO-101 MuJoCo demo on top of LeRobot
-#   mjlab    reinforcement learning: mjlab's G1 humanoid and YAM arm tasks
+# The following environments are available, each with its own dependency trees:
+#   lerobot:    imitation learning: the SO-101 MuJoCo demo on top of LeRobot
+#   mjlab:      reinforcement learning: mjlab's G1 humanoid and YAM arm tasks
 #
 # Both frameworks are git submodules under external/ and are installed as
 # editable packages, so edits there take effect immediately.
@@ -15,7 +14,11 @@
 [workspace]
 name = "robot-learning-101"
 channels = ["conda-forge"]
-platforms = ["linux-64"]
+platforms = [
+  "linux-64",
+  # warp-lang (mjlab) only ships manylinux_2_34 wheels for aarch64.
+  { name = "linux-aarch64-glibc-2-34", platform = "linux-aarch64", glibc = "2.34" },
+]
 
 [dependencies]
 python = "3.12.*"
@@ -44,10 +47,11 @@ lerobot-teleoperator-keyboard-pose = { path = "so101_mujoco_demo/plugins/keyboar
 # All run from so101_mujoco_demo/, so relative paths (data/, outputs/) land there.
 so101-teleoperate = { cmd = "python scripts/teleoperate.py", cwd = "so101_mujoco_demo", description = "Drive the simulated SO-101 with the keyboard (no recording)" }
 so101-record = { cmd = "python scripts/record.py", cwd = "so101_mujoco_demo", description = "Keyboard teleop -> LeRobotDataset" }
-so101-viz = { cmd = "lerobot-dataset-viz", cwd = "so101_mujoco_demo", description = "Replay a dataset episode in rerun" }
+# The rerun viewer's default Vulkan surface fails here ("Invalid surface"); GL works.
+so101-viz = { cmd = "lerobot-dataset-viz", cwd = "so101_mujoco_demo", env = { WGPU_BACKEND = "gl" }, description = "Replay a dataset episode in rerun" }
 so101-train = { cmd = "lerobot-train", cwd = "so101_mujoco_demo", description = "lerobot-train: ACT from scratch or SmolVLA fine-tune" }
-# Headless EGL rendering. For --show / --show-viewer run the script directly
-# (`pixi run -e lerobot python scripts/...`) so MuJoCo uses its GLFW window.
+# EGL renders the policy cameras offscreen; --show / --show-viewer still opens
+# the MuJoCo viewer window alongside it.
 so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Scripted expert -> LeRobotDataset (headless)" }
 so101-inspect = { cmd = "python scripts/inspect_policy.py", cwd = "so101_mujoco_demo", description = "Print a trained policy's module tree and parameter counts" }
 so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Success rate of a trained policy in the sim (headless)" }

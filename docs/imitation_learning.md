@@ -24,7 +24,7 @@ The `so101-*` tasks run inside `so101_mujoco_demo/`, so the relative `data/` and
 Extra arguments are passed through to the underlying command.
 
 The headless tasks (`so101-collect`, `so101-eval`) set `MUJOCO_GL=egl` for you.
-To watch a viewer instead, invoke the script directly from `so101_mujoco_demo/` (`pixi run -e lerobot python scripts/... --show`) so MuJoCo uses its windowed GLFW backend.
+To watch them in the MuJoCo viewer, add `--show-viewer` (`so101-collect`) or `--show` (`so101-eval`).
 
 Every script takes `--colors`: the target cube(s), with episodes alternating through the list.
 The default is `red`; `--colors red green` is the language-conditioned setting.
@@ -73,8 +73,7 @@ pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episo
 pixi run so101-collect --repo-id you/so101_pick_two --root data/pick_two --episodes 200 --colors red green
 ```
 
-To watch it work, run `pixi run -e lerobot python scripts/collect_scripted.py --show-viewer ...` instead; the loop then paces itself to real time.
-(The interactive viewer needs the GLFW backend that the `so101-collect` task's `MUJOCO_GL=egl` would disable.)
+To watch it work, add `--show-viewer` (e.g., `pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 100 --show-viewer`); the loop then paces itself to real time.
 
 ## 3. Visualize with rerun
 
@@ -106,7 +105,7 @@ More steps beyond that point do not help; more demonstrations do.
 
 ### 4b. Fine-tune SmolVLA (both cubes, language-conditioned)
 
-[SmolVLA](https://huggingface.co/docs/lerobot/smolvla) is lerobot's 450M language-conditioned VLA.
+[SmolVLA](https://huggingface.co/docs/lerobot/smolvla) is LERobot's 450M language-conditioned VLA.
 Instead of training from scratch (`--policy.type=...`), you fine-tune the pretrained base with `--policy.path=lerobot/smolvla_base`, downloaded from the HF Hub on first run.
 Each episode's task string ("Pick up the red/green cube and lift it.") is the language input, so the two-color dataset is what makes the instruction meaningful.
 
@@ -198,10 +197,10 @@ pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/p
 ```
 
 The instruction defaults to the target color's recorded task string; `--task "..."` overrides it, which is how you would test rephrasings.
-In the viewer (from `so101_mujoco_demo/`):
+In the viewer:
 
 ```bash
-pixi run -e lerobot python scripts/eval_policy.py --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 10 --colors red green --show
+pixi run so101-eval --policy-path outputs/train/so101_smolvla/checkpoints/last/pretrained_model --episodes 10 --colors red green --show
 ```
 
 Deploy-style rollout (from `so101_mujoco_demo/`).

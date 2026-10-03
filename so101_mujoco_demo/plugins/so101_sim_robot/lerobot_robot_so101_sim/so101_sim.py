@@ -61,7 +61,9 @@ class SO101Sim(Robot):
         if self.config.show_viewer:
             import mujoco.viewer
 
-            self.viewer = mujoco.viewer.launch_passive(self.env.model, self.env.data)
+            self.viewer = mujoco.viewer.launch_passive(
+                self.env.model, self.env.data, show_left_ui=False, show_right_ui=False
+            )
         self.configure()
 
     def disconnect(self) -> None:

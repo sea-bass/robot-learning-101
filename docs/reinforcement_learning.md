@@ -1,11 +1,11 @@
 # Reinforcement learning with mjlab
 
 [mjlab](https://github.com/mujocolab/mjlab) simulates thousands of environments in parallel with [MuJoCo Warp](https://github.com/google-deepmind/mujoco_warp) and trains PPO policies on them with [rsl_rl](https://github.com/leggedrobotics/rsl_rl).
-Environments are built Isaac Lab-style from *managers* (observations, rewards, terminations, commands, ...), so a task is a config file, not a loop.
+Environments are built Isaac Lab-style from *managers* (observations, rewards, terminations, commands, ...), so a task is defined as a config file.
 Two of its built-in tasks are wired up here.
 
 Run the commands from the repository root; training logs land in `logs/rsl_rl/<experiment>/<timestamp>/`.
-mjlab logs to [Weights & Biases](https://wandb.ai) by default; pass `--agent.logger tensorboard` if you don't have an account.
+mjlab logs to [Weights & Biases](https://forge.coreweave.com/wandb) by default; pass `--agent.logger tensorboard` if you don't have an account.
 
 ## Quick check: the packaged demo
 
@@ -25,8 +25,9 @@ pixi run g1-walk-train                       # 4096 envs, 30k iterations by defa
 pixi run g1-walk-train --agent.max-iterations 2000 --env.scene.num-envs 2048
 ```
 
-On a laptop RTX 5070 (8 GB) 4096 environments run at about 1.1 s per iteration, so 2000 iterations take 40 minutes.
-In that run the mean reward went from -1 to 65 and the episode length hit its 1000-step cap (no more falls) after about 800 iterations.
+You will notice this creates a folder named `logs/rsl_rl/g1_velocity/<timestamp>`.
+To get information about the agent and environment configuration used, open the `params` subfolder and view the `agent.yaml` and `env.yaml` files, respectively.
+Model checkpoints will also be periodically saved to this folder, by default every 50 iterations.
 
 ### Watch it learn while it trains
 
@@ -71,12 +72,15 @@ pixi run yam-lift-train                      # 4096 envs, 3k iterations by defau
 pixi run yam-lift-play --checkpoint-file logs/rsl_rl/yam_lift_cube_vision/<timestamp>/model_3000.pt
 ```
 
-On a laptop RTX 5070 4096 environments run at about 4.7 s per iteration, and the episode success rate passes 80% after roughly 700 iterations, about an hour in.
 If rendering 4096 cameras does not fit, drop `--env.scene.num-envs` (e.g. 1024).
+
+Similarly, you should see the outputs of this training run in `logs/rsl_rl/yam_lift_cube_vision/<timestamp>`.
+
+---
 
 ## You have a trained policy. Now what?
 
-Every run writes to `logs/rsl_rl/<experiment>/<timestamp>/`: `model_<iter>.pt` checkpoints at every `--agent.save-interval`, a matching `<timestamp>.onnx` export of the latest actor, and TensorBoard event files (`pixi run -e mjlab tensorboard --logdir logs/rsl_rl`).
+Generally, every run writes to `logs/rsl_rl/<experiment>/<timestamp>/`: `model_<iter>.pt` checkpoints at every `--agent.save-interval`, a matching `<timestamp>.onnx` export of the latest actor, and TensorBoard event files (`pixi run -e mjlab tensorboard --logdir logs/rsl_rl`).
 
 **Watch it.** `play` loads a checkpoint into a handful of environments and opens the viewer:
 

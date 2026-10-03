@@ -9,7 +9,7 @@ Episodes alternate through --colors; each one's default instruction is that
 color's task string and success means *that* cube was lifted (lifting the
 other one is counted separately, as "wrong cube").
 
-To watch in the MuJoCo viewer:  pixi run -e lerobot python scripts/eval_policy.py ... --show
+To watch in the MuJoCo viewer:  pixi run so101-eval ... --show
 For deployment-style rollouts the official CLI also works:
     pixi run -e lerobot lerobot-rollout --robot.type=so101_sim ...
 """
