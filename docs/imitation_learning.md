@@ -23,7 +23,8 @@ The first `pixi run` builds it.
 The `so101-*` tasks run inside `so101_mujoco_demo/`, so the relative `data/` and `outputs/` paths below land there.
 Extra arguments are passed through to the underlying command.
 
-The headless tasks (`so101-collect`, `so101-eval`) set `MUJOCO_GL=egl` for you.
+The `lerobot` environment sets `MUJOCO_GL=egl`, so the sim renders its policy cameras offscreen in every task and in `pixi run -e lerobot ...` commands; the MuJoCo viewer window still opens alongside it.
+Without it, the cameras render through the viewer's OpenGL context, and recording with the viewer open slowed from 25 Hz to about 8 Hz.
 To watch them in the MuJoCo viewer, add `--show-viewer` (`so101-collect`) or `--show` (`so101-eval`).
 
 Every script takes `--colors`: the target cube(s), with episodes alternating through the list.
@@ -55,15 +56,42 @@ Same technique as the real arm.
 ## 2. Record datasets
 
 Two datasets: red-only for ACT, and both colors for SmolVLA, 100 episodes per color.
+There are three ways to produce them, and all three write the same schema (joint actions in degrees, wrist/front cameras, one task string per episode), so they train with the same `so101-train` commands.
+
+Every recorder re-randomizes the scene before each episode: the arm re-homes, both cubes respawn, and the next target color comes from `--colors`.
+The terminal tells you which cube to pick, and the episode stores the matching task string.
+
+### 2a. Keyboard
 
 ```bash
 pixi run so101-record --repo-id you/so101_pick_red --root data/pick_red --episodes 100 --display-data
 pixi run so101-record --repo-id you/so101_pick_two --root data/pick_two --episodes 200 --colors red green
 ```
 
-Motion keys as above, plus: **ENTER** = save episode, **x** = discard & re-record, **ESC** = stop and finalize.
-The terminal tells you which cube to pick before each episode.
+Motion keys as in section 1, plus: **n** = save episode, **r** = discard & re-record, **ESC** = stop and finalize.
+**ESC** discards the episode in progress, so press **n** first to keep it.
 `--display-data` opens a live rerun view of both cameras + joint streams while you record.
+LeRobot's `Record loop is running slower ... than the target FPS` warning is hidden by default because it repeats on every slow tick; add `--fps-warnings` to see it.
+Frames are stored at a fixed 1/25 s spacing, so if the loop is consistently slow (for example with `--display-data`, or with `MUJOCO_GL` set to something other than `egl`), recorded episodes play back faster than you drove them.
+
+### 2b. SO-101 leader arm
+
+With a physical SO-101 leader arm (see [Hardware setup](#hardware-setup-optional)), add `--teleop leader`:
+
+```bash
+pixi run so101-record --teleop leader --repo-id you/so101_pick_two_leader --root data/pick_two_leader --episodes 200 --colors red green
+```
+
+`--port` defaults to `/dev/SO101Leader` and `--teleop-id` to `leader_arm`; pass them if yours differ.
+The episode keys are the same as for the keyboard (**n** / **r** / **ESC**).
+
+- **Syncing to the leader**: after each scene reset, the sim arm eases from home to the leader's pose over one second, unrecorded, before the episode starts.
+  Without this, the first frame would snap the arm to wherever you are holding the leader and could knock the cubes.
+  Between episodes, hold the leader near the sim's home pose, above and clear of the cubes.
+- **No reset phase**: the next episode starts as soon as you save one.
+- **Gripper range**: the leader's gripper reads about 0 when closed and up to 100 when open, while the keyboard recorder clips the gripper to −8 (firm close) to 74.
+
+### 2c. Scripted expert
 
 Teleoperating 100 episodes is a chore, so a scripted expert can produce the same datasets headlessly (failed attempts are discarded).
 This is how the results below were produced; each run takes a few minutes:
@@ -242,3 +270,14 @@ Swapping `--robot.type=so101_follower` in the rollout commands points the same p
 
 The `keyboard_pose` teleoperator and the processor pipeline in `scripts/sim_pipelines.py` are robot-agnostic.
 Swap `SO101Sim` for lerobot's `SO101Follower` (`--robot.type=so101_follower`, `use_degrees=true`) and the same keyboard EE teleop drives the physical arm.
+
+## Hardware setup (optional)
+
+Only needed to record with a physical SO-101 leader arm ([2b](#2b-so-101-leader-arm)).
+
+- **Motor SDK**: the `lerobot` environment installs LeRobot with the `feetech` extra (the equivalent of `pip install 'lerobot[feetech]'`), which provides the servo SDK the leader needs.
+- **Serial port**: `so101-record --teleop leader` defaults to `/dev/SO101Leader`, a udev symlink to the leader's `/dev/ttyACM*` device.
+  Without one, pass the `/dev/ttyACM*` path with `--port`.
+  If you get a permission error, add yourself to the `dialout` group and log in again.
+- **Calibration**: the first `so101-record --teleop leader` run walks you through calibrating the leader and saves it as `<teleop-id>.json` (default `leader_arm`) under `~/.cache/huggingface/lerobot/calibration/teleoperators/so_leader/`.
+  Later runs with the same `--teleop-id` reuse it.

@@ -7,7 +7,7 @@ Bindings (global via pynput, active while connected):
     a / d       roll the jaws about the tool axis
     space       toggle gripper open/close
 
-Episode-control keys (ENTER/x/ESC) are intentionally not handled here — the
+Episode-control keys (n/r/ESC) are intentionally not handled here — the
 recording script owns those so bindings never conflict.
 """
 

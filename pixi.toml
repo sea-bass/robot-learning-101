@@ -37,24 +37,29 @@ mjlab = ["mjlab"]
 
 [feature.lerobot.pypi-dependencies]
 # training = dataset + wandb, dataset_viz = rerun, placo-dep = IK backend,
-# smolvla = transformers + accelerate for SmolVLA fine-tuning
-lerobot = { path = "external/lerobot", editable = true, extras = ["training", "dataset_viz", "placo-dep", "smolvla"] }
+# smolvla = transformers + accelerate for SmolVLA fine-tuning,
+# feetech = motor SDK for a real SO-101 leader/follower arm
+lerobot = { path = "external/lerobot", editable = true, extras = ["training", "dataset_viz", "placo-dep", "smolvla", "feetech"] }
 so101-sim = { path = "so101_mujoco_demo", editable = true }
 lerobot-robot-so101-sim = { path = "so101_mujoco_demo/plugins/so101_sim_robot", editable = true }
 lerobot-teleoperator-keyboard-pose = { path = "so101_mujoco_demo/plugins/keyboard_pose_teleop", editable = true }
 
+[feature.lerobot.activation.env]
+# EGL renders the sim's policy cameras offscreen; the MuJoCo viewer window still
+# opens alongside it. Rendering them through the viewer's GLFW context instead
+# slows each tick from ~2 ms to ~115 ms (25 Hz -> 8 Hz).
+MUJOCO_GL = "egl"
+
 [feature.lerobot.tasks]
 # All run from so101_mujoco_demo/, so relative paths (data/, outputs/) land there.
 so101-teleoperate = { cmd = "python scripts/teleoperate.py", cwd = "so101_mujoco_demo", description = "Drive the simulated SO-101 with the keyboard (no recording)" }
-so101-record = { cmd = "python scripts/record.py", cwd = "so101_mujoco_demo", description = "Keyboard teleop -> LeRobotDataset" }
+so101-record = { cmd = "python scripts/record.py", cwd = "so101_mujoco_demo", description = "Keyboard or leader-arm teleop -> LeRobotDataset" }
 # The rerun viewer's default Vulkan surface fails here ("Invalid surface"); GL works.
 so101-viz = { cmd = "lerobot-dataset-viz", cwd = "so101_mujoco_demo", env = { WGPU_BACKEND = "gl" }, description = "Replay a dataset episode in rerun" }
 so101-train = { cmd = "lerobot-train", cwd = "so101_mujoco_demo", description = "lerobot-train: ACT from scratch or SmolVLA fine-tune" }
-# EGL renders the policy cameras offscreen; --show / --show-viewer still opens
-# the MuJoCo viewer window alongside it.
-so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Scripted expert -> LeRobotDataset (headless)" }
+so101-collect = { cmd = "python scripts/collect_scripted.py", cwd = "so101_mujoco_demo", description = "Scripted expert -> LeRobotDataset (headless)" }
 so101-inspect = { cmd = "python scripts/inspect_policy.py", cwd = "so101_mujoco_demo", description = "Print a trained policy's module tree and parameter counts" }
-so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo", env = { MUJOCO_GL = "egl" }, description = "Success rate of a trained policy in the sim (headless)" }
+so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo", description = "Success rate of a trained policy in the sim (headless)" }
 
 # --------------------------------------------------------------------------
 # mjlab: GPU-parallel RL (needs an NVIDIA GPU)
