@@ -8,6 +8,7 @@ dependencies = [
     "gymnasium>=0.29",
     "numpy",
     "pynput",
+    "mjviser>=0.0.14",
 ]
 
 [build-system]

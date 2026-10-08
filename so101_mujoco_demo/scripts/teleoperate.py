@@ -2,6 +2,7 @@
 
     pixi run so101-teleoperate
     pixi run so101-teleoperate --colors red green   # x cycles the target cube
+    pixi run so101-teleoperate --viewer viser       # web viewer (e.g. over SSH)
 
 arrows = EE forward/back/left/right, w/s = up/down, q/e = pitch,
 a/d = roll jaws, space = toggle gripper, x = reset scene, ESC = quit.
@@ -14,15 +15,16 @@ from pynput import keyboard as pynput_keyboard
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from lerobot_teleoperator_keyboard_pose import KeyboardPose, KeyboardPoseConfig
-from sim_pipelines import FPS, add_colors_arg, make_teleop_action_pipeline
+from sim_pipelines import FPS, add_colors_arg, add_viewer_args, make_teleop_action_pipeline, viewer_kwargs
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_colors_arg(parser)
+    add_viewer_args(parser)
     args = parser.parse_args()
 
-    robot = SO101Sim(SO101SimConfig(show_viewer=True, target_color=args.colors[0]))
+    robot = SO101Sim(SO101SimConfig(show_viewer=True, target_color=args.colors[0], **viewer_kwargs(args)))
     teleop = KeyboardPose(KeyboardPoseConfig())
     pipeline = make_teleop_action_pipeline()
 

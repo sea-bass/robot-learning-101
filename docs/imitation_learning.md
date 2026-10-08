@@ -27,6 +27,21 @@ The `lerobot` environment sets `MUJOCO_GL=egl`, so the sim renders its policy ca
 Without it, the cameras render through the viewer's OpenGL context, and recording with the viewer open slowed from 25 Hz to about 8 Hz.
 To watch them in the MuJoCo viewer, add `--show-viewer` (`so101-collect`) or `--show` (`so101-eval`).
 
+### Viewing over SSH
+
+The native MuJoCo viewer needs a display.
+On a remote machine, add `--viewer viser` to any `so101-*` task (or `--robot.viewer=viser` to `lerobot-rollout`) and the scene is served to a browser by [mjviser](https://github.com/mujocolab/mjviser) instead; nothing on the remote side needs OpenGL or an X server (the policy cameras still render through EGL).
+Forward the port and open http://localhost:8080:
+
+```bash
+ssh -L 8080:localhost:8080 <remote>
+pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 100 --show-viewer --viewer viser
+```
+
+`--viser-port` changes the port.
+The viewer is display-only (orbit with the mouse, toggle contacts in the *Visualization* tab); it does not forward key presses, so keyboard teleop (`so101-teleoperate`, `so101-record` without `--teleop leader`) still needs the keyboard listener to see a local display.
+The leader arm, the scripted expert, `so101-eval` and `lerobot-rollout` have no such requirement and work fully over SSH.
+
 Every script takes `--colors`: the target cube(s), with episodes alternating through the list.
 The default is `red`; `--colors red green` is the language-conditioned setting.
 

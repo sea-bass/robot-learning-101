@@ -7,6 +7,7 @@ The walkthrough is in [`docs/imitation_learning.md`](../docs/imitation_learning.
 so101_sim/                    gym env (SO101PickCube-v0, two cubes + target color), MJCF scene,
                               placo IK wrapper, EE-target controller, scripted pick expert
 plugins/so101_sim_robot/      LeRobot Robot plugin        -> --robot.type=so101_sim
+                              (viser_viewer.py: browser viewer for --viewer viser, e.g. over SSH)
 plugins/keyboard_pose_teleop/ LeRobot Teleoperator plugin -> --teleop.type=keyboard_pose
 scripts/                      teleoperate / record / collect_scripted / eval_policy
 ```

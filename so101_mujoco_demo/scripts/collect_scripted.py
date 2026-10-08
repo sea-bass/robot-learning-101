@@ -25,7 +25,7 @@ from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from so101_sim.control import EETargetController
 from so101_sim.env import JOINT_NAMES, TASKS
 from so101_sim.scripted import scripted_pick
-from sim_pipelines import FPS, add_colors_arg
+from sim_pipelines import FPS, add_colors_arg, add_viewer_args, viewer_kwargs
 
 
 def main():
@@ -34,11 +34,12 @@ def main():
     parser.add_argument("--root", default=None)
     parser.add_argument("--episodes", type=int, default=25)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--show-viewer", action="store_true")
+    parser.add_argument("--show-viewer", action="store_true", help="watch it in the viewer, paced to real time")
+    add_viewer_args(parser)
     add_colors_arg(parser)
     args = parser.parse_args()
 
-    robot = SO101Sim(SO101SimConfig(show_viewer=args.show_viewer))
+    robot = SO101Sim(SO101SimConfig(show_viewer=args.show_viewer, **viewer_kwargs(args)))
     robot.connect()
 
     features = combine_feature_dicts(

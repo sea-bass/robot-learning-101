@@ -10,6 +10,7 @@ color's task string and success means *that* cube was lifted (lifting the
 other one is counted separately, as "wrong cube").
 
 To watch in the MuJoCo viewer:  pixi run so101-eval ... --show
+In a browser (e.g. over SSH):   pixi run so101-eval ... --show --viewer viser
 For deployment-style rollouts the official CLI also works:
     pixi run -e lerobot lerobot-rollout --robot.type=so101_sim ...
 """
@@ -26,7 +27,7 @@ from lerobot.policies.factory import get_policy_class, make_pre_post_processors
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from so101_sim.env import JOINT_NAMES, TASKS
-from sim_pipelines import FPS, add_colors_arg
+from sim_pipelines import FPS, add_colors_arg, add_viewer_args, viewer_kwargs
 
 MAX_TICKS = 250  # per-episode budget in sim ticks (250 = 10 s simulated; wall time
                  # is longer when rendering + inference exceed the 40 ms tick budget)
@@ -48,7 +49,8 @@ def main():
     parser.add_argument("--policy-path", required=True, help="checkpoint pretrained_model dir")
     parser.add_argument("--episodes", type=int, default=10)
     parser.add_argument("--seed", type=int, default=1000)
-    parser.add_argument("--show", action="store_true", help="display in MuJoCo viewer")
+    parser.add_argument("--show", action="store_true", help="display in the viewer (--viewer), paced to real time")
+    add_viewer_args(parser)
     parser.add_argument("--max-ticks", type=int, default=MAX_TICKS, help="sim ticks per episode (25/s)")
     add_colors_arg(parser)
     parser.add_argument(
@@ -79,7 +81,7 @@ def main():
         preprocessor_overrides={"device_processor": {"device": device}},
     )
 
-    robot = SO101Sim(SO101SimConfig(show_viewer=args.show, seed=args.seed))
+    robot = SO101Sim(SO101SimConfig(show_viewer=args.show, seed=args.seed, **viewer_kwargs(args)))
     robot.connect()
 
     successes = {c: 0 for c in args.colors}

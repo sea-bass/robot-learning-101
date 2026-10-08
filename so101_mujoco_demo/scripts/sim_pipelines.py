@@ -26,6 +26,7 @@ from lerobot.robots.so_follower.robot_kinematic_processor import (
     InverseKinematicsEEToJoints,
 )
 
+from lerobot_robot_so101_sim.config_so101_sim import VIEWERS
 from so101_sim.control import WORKSPACE_HIGH, WORKSPACE_LOW
 from so101_sim.env import CUBE_COLORS, JOINT_NAMES, TASKS
 from so101_sim.ik import ARM_JOINTS, EE_FRAME, URDF_PATH
@@ -47,6 +48,21 @@ def add_colors_arg(parser, default=("red",)):
         help=f"target cube color(s), episodes alternate through them (choices: {', '.join(CUBE_COLORS)}; "
         f"default: {' '.join(default)})",
     )
+
+
+def add_viewer_args(parser):
+    """--viewer native|viser, --viser-port: how the sim is displayed (see viewer_kwargs)."""
+    parser.add_argument(
+        "--viewer", choices=VIEWERS, default="native",
+        help="native = MuJoCo window (needs a display); viser = web viewer at http://localhost:<port>, "
+        "works over SSH with port forwarding (default: native)",
+    )
+    parser.add_argument("--viser-port", type=int, default=8080, help="port for --viewer viser (default: 8080)")
+
+
+def viewer_kwargs(args) -> dict:
+    """SO101SimConfig fields set by add_viewer_args."""
+    return {"viewer": args.viewer, "viser_port": args.viser_port}
 
 
 def make_kinematics() -> RobotKinematics:

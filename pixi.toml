@@ -47,7 +47,8 @@ lerobot-teleoperator-keyboard-pose = { path = "so101_mujoco_demo/plugins/keyboar
 [feature.lerobot.activation.env]
 # EGL renders the sim's policy cameras offscreen; the MuJoCo viewer window still
 # opens alongside it. Rendering them through the viewer's GLFW context instead
-# slows each tick from ~2 ms to ~115 ms (25 Hz -> 8 Hz).
+# slows each tick from ~2 ms to ~115 ms (25 Hz -> 8 Hz). Over SSH, pass
+# `--viewer viser` to the so101-* tasks for a browser-based viewer instead.
 MUJOCO_GL = "egl"
 
 [feature.lerobot.tasks]

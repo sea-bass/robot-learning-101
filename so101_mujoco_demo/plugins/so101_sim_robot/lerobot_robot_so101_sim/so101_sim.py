@@ -59,12 +59,25 @@ class SO101Sim(Robot):
         )
         self.env.reset(seed=self.config.seed)
         if self.config.show_viewer:
+            self.viewer = self._launch_viewer()
+        self.configure()
+
+    def _launch_viewer(self):
+        """Native MuJoCo window, or an mjviser web viewer (``config.viewer``).
+
+        Both expose ``sync()`` / ``is_running()`` / ``close()``.
+        """
+        if self.config.viewer == "viser":
+            from .viser_viewer import ViserViewer
+
+            return ViserViewer(self.env.model, self.env.data, port=self.config.viser_port)
+        if self.config.viewer == "native":
             import mujoco.viewer
 
-            self.viewer = mujoco.viewer.launch_passive(
+            return mujoco.viewer.launch_passive(
                 self.env.model, self.env.data, show_left_ui=False, show_right_ui=False
             )
-        self.configure()
+        raise ValueError(f"unknown viewer {self.config.viewer!r}, expected 'native' or 'viser'")
 
     def disconnect(self) -> None:
         if self.viewer is not None:

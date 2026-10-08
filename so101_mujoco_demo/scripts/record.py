@@ -3,6 +3,7 @@
     pixi run so101-record --repo-id you/so101_pick_cube --episodes 100 --display-data
     pixi run so101-record --repo-id you/so101_pick_two --episodes 200 --colors red green
     pixi run so101-record --repo-id you/so101_pick_red --teleop leader --port /dev/SO101Leader
+    pixi run so101-record --repo-id you/so101_pick_red --teleop leader --viewer viser   # browser viewer, e.g. over SSH
 
 --teleop keyboard (default) drives the end-effector with the keyboard_pose
 teleoperator; --teleop leader mirrors a physical SO-101 leader arm joint for
@@ -45,9 +46,11 @@ from so101_sim.env import JOINT_NAMES, TASKS
 from sim_pipelines import (
     FPS,
     add_colors_arg,
+    add_viewer_args,
     identity_action_pipeline,
     identity_observation_pipeline,
     make_teleop_action_pipeline,
+    viewer_kwargs,
 )
 
 EPISODE_TIME_S = 120
@@ -119,6 +122,7 @@ def main():
         "--fps-warnings", action="store_true",
         help="show record_loop's warning on every tick that runs slower than the target FPS",
     )
+    add_viewer_args(parser)
     add_colors_arg(parser)
     args = parser.parse_args()
 
@@ -126,7 +130,7 @@ def main():
         # record_loop logs it through the root logger, once per slow tick.
         logging.getLogger().addFilter(_HideSlowLoopWarnings())
 
-    robot = SO101Sim(SO101SimConfig(show_viewer=True))
+    robot = SO101Sim(SO101SimConfig(show_viewer=True, **viewer_kwargs(args)))
     if args.teleop == "leader":
         # The leader already outputs {joint}.pos in degrees, so it needs no IK pipeline.
         teleop = SO101Leader(SO101LeaderConfig(port=args.port, id=args.teleop_id))
