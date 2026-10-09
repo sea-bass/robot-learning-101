@@ -1,6 +1,7 @@
 """Keyboard end-effector pose teleoperator.
 
-Bindings (global via pynput, active while connected):
+Bindings (active while connected; keys come from the local display via
+pynput, or from the viser viewer's browser tab, see config.key_source):
     arrows      EE forward/back (up/down) and left/right
     w / s       EE up / down
     q / e       pitch the gripper up / down
@@ -16,18 +17,18 @@ import time
 from typing import Any
 
 import numpy as np
-from pynput import keyboard
 from scipy.spatial.transform import Rotation
 
 from lerobot.teleoperators.teleoperator import Teleoperator
 
 from .config_keyboard_pose import KeyboardPoseConfig
+from .keys import DOWN, LEFT, RIGHT, SPACE, UP, make_listener
 
 MOVE_KEYS = {
-    keyboard.Key.up: np.array([1.0, 0.0, 0.0]),
-    keyboard.Key.down: np.array([-1.0, 0.0, 0.0]),
-    keyboard.Key.left: np.array([0.0, 1.0, 0.0]),
-    keyboard.Key.right: np.array([0.0, -1.0, 0.0]),
+    UP: np.array([1.0, 0.0, 0.0]),
+    DOWN: np.array([-1.0, 0.0, 0.0]),
+    LEFT: np.array([0.0, 1.0, 0.0]),
+    RIGHT: np.array([0.0, -1.0, 0.0]),
     "w": np.array([0.0, 0.0, 1.0]),
     "s": np.array([0.0, 0.0, -1.0]),
 }
@@ -46,7 +47,7 @@ class KeyboardPose(Teleoperator):
         self.config = config
         self._held: set = set()
         self._lock = threading.Lock()
-        self._listener: keyboard.Listener | None = None
+        self._listener = None  # pynput Listener or BrowserKeys subscription
         self._last_t: float | None = None
         self.gripper_open = True
         self._offset = np.zeros(3)
@@ -79,7 +80,9 @@ class KeyboardPose(Teleoperator):
         return self._listener is not None and self._listener.is_alive()
 
     def connect(self, calibrate: bool = True) -> None:
-        self._listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
+        self._listener = make_listener(
+            self.config.key_source, self._on_press, self._on_release, self.config.browser_port
+        )
         self._listener.start()
 
     def disconnect(self) -> None:
@@ -99,22 +102,15 @@ class KeyboardPose(Teleoperator):
 
     # ------------------------------------------------------------- keyboard
 
-    @staticmethod
-    def _canonical(key):
-        if isinstance(key, keyboard.KeyCode) and key.char is not None:
-            return key.char.lower()
-        return key
-
-    def _on_press(self, key):
-        key = self._canonical(key)
+    def _on_press(self, key: str):
         with self._lock:
-            if key == keyboard.Key.space and key not in self._held:
+            if key == SPACE and key not in self._held:
                 self.gripper_open = not self.gripper_open
             self._held.add(key)
 
-    def _on_release(self, key):
+    def _on_release(self, key: str):
         with self._lock:
-            self._held.discard(self._canonical(key))
+            self._held.discard(key)
 
     # --------------------------------------------------------------- action
 

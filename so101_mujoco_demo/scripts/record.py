@@ -33,7 +33,6 @@ import logging
 import time
 
 import numpy as np
-from pynput import keyboard as pynput_keyboard
 
 from lerobot.datasets import LeRobotDataset, aggregate_pipeline_dataset_features, create_initial_features
 from lerobot.scripts.lerobot_record import record_loop
@@ -42,6 +41,7 @@ from lerobot.utils.feature_utils import combine_feature_dicts
 
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from lerobot_teleoperator_keyboard_pose import KeyboardPose, KeyboardPoseConfig
+from lerobot_teleoperator_keyboard_pose.keys import ESC, make_listener
 from so101_sim.env import JOINT_NAMES, TASKS
 from sim_pipelines import (
     FPS,
@@ -57,21 +57,20 @@ EPISODE_TIME_S = 120
 SYNC_TIME_S = 1.0  # leader only: ease the re-homed sim arm onto the leader's pose
 
 
-def episode_control_listener(events: dict) -> pynput_keyboard.Listener:
+def episode_control_listener(events: dict, key_source: str, browser_port: int):
     """n = save, r = re-record, ESC = stop. (Arrows and q stay free for driving.)"""
 
-    def on_press(key):
-        char = key.char.lower() if isinstance(key, pynput_keyboard.KeyCode) and key.char else None
-        if char == "n":
+    def on_press(key: str):
+        if key == "n":
             events["exit_early"] = True
-        elif char == "r":
+        elif key == "r":
             events["rerecord_episode"] = True
             events["exit_early"] = True
-        elif key == pynput_keyboard.Key.esc:
+        elif key == ESC:
             events["stop_recording"] = True
             events["exit_early"] = True
 
-    listener = pynput_keyboard.Listener(on_press=on_press)
+    listener = make_listener(key_source, on_press, browser_port=browser_port)
     listener.start()
     return listener
 
@@ -131,12 +130,15 @@ def main():
         logging.getLogger().addFilter(_HideSlowLoopWarnings())
 
     robot = SO101Sim(SO101SimConfig(show_viewer=True, **viewer_kwargs(args)))
+    # With the web viewer, keys (driving and n/r/ESC) come from the browser tab.
+    key_source = "browser" if args.viewer == "viser" else "pynput"
+    browser_port = args.viser_port + 1
     if args.teleop == "leader":
         # The leader already outputs {joint}.pos in degrees, so it needs no IK pipeline.
         teleop = SO101Leader(SO101LeaderConfig(port=args.port, id=args.teleop_id))
         teleop_action_processor = identity_action_pipeline()
     else:
-        teleop = KeyboardPose(KeyboardPoseConfig())
+        teleop = KeyboardPose(KeyboardPoseConfig(key_source=key_source, browser_port=browser_port))
         teleop_action_processor = make_teleop_action_pipeline()
     robot_action_processor = identity_action_pipeline()
     robot_observation_processor = identity_observation_pipeline()
@@ -164,9 +166,14 @@ def main():
 
     teleop.connect()  # leader: calibrates interactively if <teleop-id>.json is missing
     robot.connect()
+    if key_source == "browser":
+        from lerobot_teleoperator_keyboard_pose.browser_keys import BrowserKeys
+
+        BrowserKeys.get(browser_port).attach(robot.viewer.server)
+        print(f"keys are read from the browser tab (websocket on port {browser_port}; forward it too over SSH)")
 
     events = {"exit_early": False, "rerecord_episode": False, "stop_recording": False}
-    listener = episode_control_listener(events)
+    listener = episode_control_listener(events, key_source, browser_port)
 
     if args.display_data:
         from lerobot.utils.rerun_visualization import init_rerun
