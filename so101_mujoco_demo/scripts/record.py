@@ -3,7 +3,7 @@
     pixi run so101-record --repo-id you/so101_pick_cube --episodes 100 --display-data
     pixi run so101-record --repo-id you/so101_pick_two --episodes 200 --colors red green
     pixi run so101-record --repo-id you/so101_pick_red --teleop leader --port /dev/SO101Leader
-    pixi run so101-record --repo-id you/so101_pick_red --teleop leader --viewer viser   # browser viewer, e.g. over SSH
+    pixi run so101-record --repo-id you/so101_pick_red --teleop leader --viewer viser   # browser viewer, e.g. on a remote machine
 
 --teleop keyboard (default) drives the end-effector with the keyboard_pose
 teleoperator; --teleop leader mirrors a physical SO-101 leader arm joint for
@@ -49,7 +49,9 @@ from sim_pipelines import (
     add_viewer_args,
     identity_action_pipeline,
     identity_observation_pipeline,
+    key_source,
     make_teleop_action_pipeline,
+    start_browser_keys,
     viewer_kwargs,
 )
 
@@ -130,15 +132,16 @@ def main():
         logging.getLogger().addFilter(_HideSlowLoopWarnings())
 
     robot = SO101Sim(SO101SimConfig(show_viewer=True, **viewer_kwargs(args)))
+    robot.connect()
     # With the web viewer, keys (driving and n/r/ESC) come from the browser tab.
-    key_source = "browser" if args.viewer == "viser" else "pynput"
-    browser_port = args.viser_port + 1
+    source = key_source(args)
+    browser_port = start_browser_keys(robot) if source == "browser" else 0
     if args.teleop == "leader":
         # The leader already outputs {joint}.pos in degrees, so it needs no IK pipeline.
         teleop = SO101Leader(SO101LeaderConfig(port=args.port, id=args.teleop_id))
         teleop_action_processor = identity_action_pipeline()
     else:
-        teleop = KeyboardPose(KeyboardPoseConfig(key_source=key_source, browser_port=browser_port))
+        teleop = KeyboardPose(KeyboardPoseConfig(key_source=source, browser_port=browser_port))
         teleop_action_processor = make_teleop_action_pipeline()
     robot_action_processor = identity_action_pipeline()
     robot_observation_processor = identity_observation_pipeline()
@@ -165,15 +168,9 @@ def main():
     )
 
     teleop.connect()  # leader: calibrates interactively if <teleop-id>.json is missing
-    robot.connect()
-    if key_source == "browser":
-        from lerobot_teleoperator_keyboard_pose.browser_keys import BrowserKeys
-
-        BrowserKeys.get(browser_port).attach(robot.viewer.server)
-        print(f"keys are read from the browser tab (websocket on port {browser_port}; forward it too over SSH)")
 
     events = {"exit_early": False, "rerecord_episode": False, "stop_recording": False}
-    listener = episode_control_listener(events, key_source, browser_port)
+    listener = episode_control_listener(events, source, browser_port)
 
     if args.display_data:
         from lerobot.utils.rerun_visualization import init_rerun

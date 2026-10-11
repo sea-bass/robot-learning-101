@@ -2,10 +2,12 @@
 ``mujoco.viewer`` passive-viewer API that the SO-101 sim uses.
 
 Nothing here needs a display or OpenGL: the scene is served over HTTP and
-rendered in the browser, so it works on a machine you reach over SSH
-(forward the port, e.g. ``ssh -L 8080:localhost:8080 host``, then open
-http://localhost:8080).
+rendered in the browser, so it works on a remote machine: open
+http://<host>:<port> from your own. The port is the requested one or, if that
+is taken (another user's viewer), the next free one; it is printed at startup.
 """
+
+import socket
 
 import mujoco
 import viser
@@ -30,7 +32,7 @@ class ViserViewer:
         )
         self.sync()
         port = self.server.get_port()
-        print(f"viser viewer: open http://localhost:{port}  (over SSH: ssh -L {port}:localhost:{port} <host>)")
+        print(f"viser viewer: open http://localhost:{port}  (from another machine: http://{socket.gethostname()}:{port})")
 
     def sync(self) -> None:
         self.scene.update_from_mjdata(self._data)
