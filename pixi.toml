@@ -44,11 +44,17 @@ so101-sim = { path = "so101_mujoco_demo", editable = true }
 lerobot-robot-so101-sim = { path = "so101_mujoco_demo/plugins/so101_sim_robot", editable = true }
 lerobot-teleoperator-keyboard-pose = { path = "so101_mujoco_demo/plugins/keyboard_pose_teleop", editable = true }
 
+[feature.lerobot.pypi-options.dependency-overrides]
+# lerobot's own pyproject pins torch/torchvision to the cu128 index via [tool.uv.sources].
+# Override it so the lerobot environment gets the same cu130 build as mjlab.
+torch = { version = ">=2.11,<2.12", index = "https://download.pytorch.org/whl/cu130" }
+torchvision = { version = ">=0.22,<0.27", index = "https://download.pytorch.org/whl/cu130" }
+
 [feature.lerobot.activation.env]
 # EGL renders the sim's policy cameras offscreen; the MuJoCo viewer window still
 # opens alongside it. Rendering them through the viewer's GLFW context instead
-# slows each tick from ~2 ms to ~115 ms (25 Hz -> 8 Hz). Over SSH, pass
-# `--viewer viser` to the so101-* tasks for a browser-based viewer instead.
+# slows each tick from ~2 ms to ~115 ms (25 Hz -> 8 Hz). On a remote machine,
+# pass `--viewer viser` to the so101-* tasks for a browser-based viewer instead.
 MUJOCO_GL = "egl"
 
 [feature.lerobot.tasks]
@@ -68,9 +74,8 @@ so101-eval = { cmd = "python scripts/eval_policy.py", cwd = "so101_mujoco_demo",
 
 [feature.mjlab.pypi-dependencies]
 mjlab = { path = "external/mjlab", editable = true }
-# Same CUDA 12.8 torch build as the lerobot environment (mjlab's own `cu128`
-# extra uses this index), so the wheel is downloaded once and shared.
-torch = { version = ">=2.7,<2.12", index = "https://download.pytorch.org/whl/cu128" }
+# Same CUDA torch build as the lerobot environment, so the wheel is downloaded once and shared.
+torch = { version = ">=2.11,<2.12", index = "https://download.pytorch.org/whl/cu130" }
 # rsl-rl-lib (<=5.5.0) still passes `start_method` to wandb.Settings, which
 # wandb 0.29 removed (0.28 only warns). Drop the pin once rsl-rl stops sending it.
 wandb = "<0.29"

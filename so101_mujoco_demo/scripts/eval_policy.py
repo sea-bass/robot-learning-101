@@ -10,7 +10,7 @@ color's task string and success means *that* cube was lifted (lifting the
 other one is counted separately, as "wrong cube").
 
 To watch in the MuJoCo viewer:  pixi run so101-eval ... --show
-In a browser (e.g. over SSH):   pixi run so101-eval ... --show --viewer viser
+In a browser (e.g. remote):     pixi run so101-eval ... --show --viewer viser
 For deployment-style rollouts the official CLI also works:
     pixi run -e lerobot lerobot-rollout --robot.type=so101_sim ...
 """

@@ -2,7 +2,7 @@
 
     pixi run so101-teleoperate
     pixi run so101-teleoperate --colors red green   # x cycles the target cube
-    pixi run so101-teleoperate --viewer viser       # web viewer (e.g. over SSH)
+    pixi run so101-teleoperate --viewer viser       # web viewer (e.g. on a remote machine)
 
 arrows = EE forward/back/left/right, w/s = up/down, q/e = pitch,
 a/d = roll jaws, space = toggle gripper, x = reset scene, ESC = quit.
@@ -14,7 +14,15 @@ import time
 from lerobot_robot_so101_sim import SO101Sim, SO101SimConfig
 from lerobot_teleoperator_keyboard_pose import KeyboardPose, KeyboardPoseConfig
 from lerobot_teleoperator_keyboard_pose.keys import ESC, make_listener
-from sim_pipelines import FPS, add_colors_arg, add_viewer_args, make_teleop_action_pipeline, viewer_kwargs
+from sim_pipelines import (
+    FPS,
+    add_colors_arg,
+    add_viewer_args,
+    key_source,
+    make_teleop_action_pipeline,
+    start_browser_keys,
+    viewer_kwargs,
+)
 
 
 def main():
@@ -24,10 +32,10 @@ def main():
     args = parser.parse_args()
 
     robot = SO101Sim(SO101SimConfig(show_viewer=True, target_color=args.colors[0], **viewer_kwargs(args)))
-    # With the web viewer, keys come from the browser tab instead of the local display.
-    key_source = "browser" if args.viewer == "viser" else "pynput"
-    browser_port = args.viser_port + 1
-    teleop = KeyboardPose(KeyboardPoseConfig(key_source=key_source, browser_port=browser_port))
+    robot.connect()
+    source = key_source(args)
+    browser_port = start_browser_keys(robot) if source == "browser" else 0
+    teleop = KeyboardPose(KeyboardPoseConfig(key_source=source, browser_port=browser_port))
     pipeline = make_teleop_action_pipeline()
 
     events = {"reset": False, "quit": False}
@@ -38,15 +46,9 @@ def main():
         elif key == "x":
             events["reset"] = True
 
-    listener = make_listener(key_source, on_press, browser_port=browser_port)
+    listener = make_listener(source, on_press, browser_port=browser_port)
     listener.start()
 
-    robot.connect()
-    if key_source == "browser":
-        from lerobot_teleoperator_keyboard_pose.browser_keys import BrowserKeys
-
-        BrowserKeys.get(browser_port).attach(robot.viewer.server)
-        print(f"keys are read from the browser tab (websocket on port {browser_port}; forward it too over SSH)")
     teleop.connect()
     print("arrows/w/s = move, q/e = pitch, a/d = roll, space = gripper, x = reset, ESC = quit")
     print(f"target: the {robot.target_color.upper()} cube")

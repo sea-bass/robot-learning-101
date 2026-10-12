@@ -16,7 +16,7 @@ class KeyboardPoseConfig(TeleoperatorConfig):
 
     ``key_source``: ``pynput`` grabs keys from the local display; ``browser``
     takes them from the viser viewer's tab via a websocket on ``browser_port``
-    (works over SSH, see browser_keys.py).
+    (works from another machine, see browser_keys.py).
     """
 
     move_speed: float = 0.15    # m/s

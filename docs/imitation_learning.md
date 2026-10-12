@@ -27,20 +27,25 @@ The `lerobot` environment sets `MUJOCO_GL=egl`, so the sim renders its policy ca
 Without it, the cameras render through the viewer's OpenGL context, and recording with the viewer open slowed from 25 Hz to about 8 Hz.
 To watch them in the MuJoCo viewer, add `--show-viewer` (`so101-collect`) or `--show` (`so101-eval`).
 
-### Viewing over SSH
+### Viewing from another machine (web viewer)
 
 The native MuJoCo viewer needs a display.
 On a remote machine, add `--viewer viser` to any `so101-*` task (or `--robot.viewer=viser` to `lerobot-rollout`) and the scene is served to a browser by [mjviser](https://github.com/mujocolab/mjviser) instead; nothing on the remote side needs OpenGL or an X server (the policy cameras still render through EGL).
-Forward the port and open http://localhost:8080:
+Each script prints the URL to open; from your own machine, use the remote host's name in place of `localhost`:
 
 ```bash
-ssh -L 8080:localhost:8080 <remote>
-pixi run so101-collect --repo-id you/so101_pick_red --root data/pick_red --episodes 100 --show-viewer --viewer viser
+pixi run so101-teleoperate --viewer viser
+# viser viewer: open http://localhost:8080  (from another machine: http://<this-host>:8080)
+# keys are read from the browser tab (websocket on port 8081, next to the viewer's)
 ```
 
-`--viser-port` changes the port.
-The viewer is display-only (orbit with the mouse, toggle contacts in the *Visualization* tab); it does not forward key presses, so keyboard teleop (`so101-teleoperate`, `so101-record` without `--teleop leader`) still needs the keyboard listener to see a local display.
-The leader arm, the scripted expert, `so101-eval` and `lerobot-rollout` have no such requirement and work fully over SSH.
+Ports are chosen at startup, so always read them from the printed lines: the viewer takes `--viser-port` (default 8080) or the next free port above it, and keyboard teleop opens a second websocket on the port after the viewer's.
+Several people can therefore run demos on one machine at the same time; each gets their own sim, viewer and ports without coordinating.
+If the machine is not reachable directly, forward both printed ports (`ssh -L 8080:localhost:8080 -L 8081:localhost:8081 <remote>`).
+
+Keyboard teleop (`so101-teleoperate`, `so101-record` without `--teleop leader`) works from the browser tab: click the 3D view, then type; the bindings are the same as with the native viewer.
+Orbit with the mouse and toggle contacts in the *Visualization* tab.
+The leader arm, the scripted expert, `so101-eval` and `lerobot-rollout` need no keyboard at all.
 
 Every script takes `--colors`: the target cube(s), with episodes alternating through the list.
 The default is `red`; `--colors red green` is the language-conditioned setting.

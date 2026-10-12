@@ -54,15 +54,40 @@ def add_viewer_args(parser):
     """--viewer native|viser, --viser-port: how the sim is displayed (see viewer_kwargs)."""
     parser.add_argument(
         "--viewer", choices=VIEWERS, default="native",
-        help="native = MuJoCo window (needs a display); viser = web viewer at http://localhost:<port>, "
-        "works over SSH with port forwarding (default: native)",
+        help="native = MuJoCo window (needs a display); viser = web viewer at http://<host>:<port>, "
+        "works from another machine (default: native)",
     )
-    parser.add_argument("--viser-port", type=int, default=8080, help="port for --viewer viser (default: 8080)")
+    parser.add_argument(
+        "--viser-port", type=int, default=8080,
+        help="port for --viewer viser; the next free one is used if taken (default: 8080)",
+    )
 
 
 def viewer_kwargs(args) -> dict:
     """SO101SimConfig fields set by add_viewer_args."""
     return {"viewer": args.viewer, "viser_port": args.viser_port}
+
+
+def key_source(args) -> str:
+    """With the web viewer, keys come from the browser tab instead of the local display."""
+    return "browser" if args.viewer == "viser" else "pynput"
+
+
+def start_browser_keys(robot) -> int:
+    """Serve key presses from the tab of ``robot``'s (connected) viser viewer.
+
+    The websocket takes the port after the one the viewer actually got (viser
+    moves up when its port is taken, and so does this server), so several
+    users on one machine each get their own viewer/keys pair. Returns the port
+    the keys arrive on; pass it as ``browser_port`` to the teleoperator and
+    ``make_listener``.
+    """
+    from lerobot_teleoperator_keyboard_pose.browser_keys import BrowserKeys
+
+    keys = BrowserKeys.get(robot.viewer.server.get_port() + 1)
+    keys.attach(robot.viewer.server)
+    print(f"keys are read from the browser tab (websocket on port {keys.port}, next to the viewer's)")
+    return keys.port
 
 
 def make_kinematics() -> RobotKinematics:

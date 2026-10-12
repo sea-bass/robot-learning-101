@@ -18,7 +18,7 @@ class SO101SimConfig(RobotConfig):
 
     ``viewer`` picks how ``show_viewer`` displays the scene: ``native`` is the
     MuJoCo window (needs a display), ``viser`` serves it to a browser at
-    ``http://localhost:<viser_port>`` and works over SSH with port forwarding.
+    ``http://<host>:<viser_port>`` (or the next free port) from any machine.
     """
 
     image_height: int = 240

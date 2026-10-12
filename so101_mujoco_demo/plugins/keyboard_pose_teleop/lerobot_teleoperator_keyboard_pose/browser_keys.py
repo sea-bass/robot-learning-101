@@ -8,7 +8,9 @@ keys.py), so the teleop code is the same for both sources.
 
 One ``BrowserKeys`` server per port is shared by everyone who calls ``get``
 (the teleoperator and the script's own episode keys), so a page needs one
-connection. Over SSH, forward this port next to the viewer's one.
+connection. Like viser, the server moves up to the next free port if the
+requested one is taken (several users on one machine); ``port`` is the one it
+actually listens on.
 """
 
 import json
@@ -90,19 +92,32 @@ class BrowserKeys:
 
     @classmethod
     def get(cls, port: int) -> "BrowserKeys":
-        """The shared server for ``port`` (started on first use)."""
+        """The shared server requested on ``port`` (started on first use).
+
+        If ``port`` is busy the server listens on the next free one; check
+        ``.port`` for where it ended up.
+        """
         with cls._instances_lock:
             if port not in cls._instances:
-                cls._instances[port] = cls(port)
+                inst = cls(port)
+                cls._instances[port] = cls._instances[inst.port] = inst  # reachable by either port
             return cls._instances[port]
 
-    def __init__(self, port: int):
-        self.port = port
+    def __init__(self, port: int, max_tries: int = 100):
+        self._requested_port = port
         self._held: set = set()
         self._subs: list[_Subscription] = []
         self._lock = threading.Lock()
         self._attached: set[int] = set()
-        self._server = serve(self._handle, "", port)
+        for attempt in range(port, port + max_tries):
+            try:
+                self._server = serve(self._handle, "", attempt)
+                break
+            except OSError:  # port not available
+                continue
+        else:
+            raise OSError(f"no free port for the browser key server in {port}..{port + max_tries - 1}")
+        self.port: int = self._server.socket.getsockname()[1]
         threading.Thread(target=self._server.serve_forever, daemon=True, name="browser-keys").start()
 
     # ----------------------------------------------------------- public API
@@ -125,6 +140,7 @@ class BrowserKeys:
     def stop(self) -> None:
         self._server.shutdown()
         with self._instances_lock:
+            self._instances.pop(self._requested_port, None)
             self._instances.pop(self.port, None)
 
     # ------------------------------------------------------------ internals
